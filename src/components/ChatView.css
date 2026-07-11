@@ -1,0 +1,125 @@
+.fi-chat-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fi-chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-2);
+}
+
+.fi-chat-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fi-msg-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  animation: fadeSlideIn 0.35s ease both;
+}
+
+.fi-msg-row.is-user {
+  flex-direction: row-reverse;
+}
+
+.fi-msg-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(155deg, #1a2c47, #0f1d33);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.fi-msg-avatar span {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.fi-msg-bubble {
+  max-width: 78%;
+  padding: 13px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14.5px;
+  line-height: 1.65;
+  position: relative;
+}
+
+.fi-msg-ai {
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-left: 2.5px solid var(--accent);
+  color: var(--text);
+  border-top-left-radius: 4px;
+}
+
+.fi-msg-user {
+  background: var(--user-bubble);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-top-right-radius: 4px;
+}
+
+.fi-msg-bubble.is-error {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
+.fi-msg-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.fi-msg-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--accent);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: pulseGlow 1s ease-in-out infinite;
+  opacity: 0.9;
+}
+
+.fi-typing {
+  display: flex;
+  gap: 5px;
+  padding: 4px 2px;
+}
+
+.fi-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+
+.fi-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.fi-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@media (max-width: 640px) {
+  .fi-msg-bubble {
+    max-width: 88%;
+  }
+}

@@ -1,0 +1,77 @@
+.fi-input-wrap {
+  padding: var(--space-2) var(--space-2) var(--space-2);
+  background: linear-gradient(180deg, transparent, var(--bg-0) 40%);
+}
+
+.fi-input-bar {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px 10px 10px 18px;
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.fi-input-bar:focus-within {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+}
+
+.fi-input-textarea {
+  flex: 1;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.5;
+  max-height: 200px;
+  padding: 8px 0;
+}
+
+.fi-input-textarea::placeholder {
+  color: var(--muted);
+}
+
+.fi-input-textarea:disabled {
+  opacity: 0.6;
+}
+
+.fi-send-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: #1a1502;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.25);
+}
+
+.fi-send-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.fi-send-btn:disabled {
+  background: var(--panel-raised);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.fi-input-hint {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 10px 0 0;
+  max-width: 760px;
+  margin-inline: auto;
+}
