@@ -1,0 +1,56 @@
+.fi-app {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.fi-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.fi-mobile-bar {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .fi-mobile-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px var(--space-2);
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    backdrop-filter: blur(16px);
+    flex-shrink: 0;
+  }
+
+  .fi-mobile-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: 0.08em;
+    color: var(--text);
+  }
+
+  .fi-menu-btn,
+  .fi-mobile-pricing {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fi-mobile-pricing {
+    color: var(--accent);
+  }
+}
