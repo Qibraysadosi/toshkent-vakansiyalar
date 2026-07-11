@@ -1,0 +1,2 @@
+# fintellect
+AI buxgalteriya yordamchisi
