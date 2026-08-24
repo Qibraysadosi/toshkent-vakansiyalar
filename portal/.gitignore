@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+dist
+*.tsbuildinfo
+next-env.d.ts
+.env
+.env.local
+.env*.local
+# Manba Excel fayllari — repoga qo'yilmaydi (shaxsiy ma'lumot + hajm)
+data/*.xlsx
+data/*.xls
+data/out/
+.DS_Store
+
+# Lockfile portalda saqlanadi (ildizdagi .gitignore uni yashiradi)
+!package-lock.json

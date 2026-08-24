@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+/*
+ * 1-bosqich: faqat poydevor ranglari. To'liq dizayn-tizim (PLAN §5 —
+ * Unbounded / Golos Text / IBM Plex Mono, koshin ko'ki) 3-bosqichda.
+ */
+@theme {
+  --color-siyoh: #10233a;
+  --color-chinni: #1391a5;
+  --color-chinni-toq: #0c6b7a;
+  --color-quyosh: #eba937;
+  --color-qogoz: #f7f4ee;
+  --color-tosh: #66707d;
+}
+
+body {
+  background: var(--color-qogoz);
+  color: var(--color-siyoh);
+}
