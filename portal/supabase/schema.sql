@@ -100,6 +100,19 @@ create index if not exists idx_logs_created   on search_logs (created_at desc);
 -- Shuning uchun RLS yoqiladi va faqat ochiq ma'lumotga o'qish ruxsati beriladi.
 -- Yozish faqat service_role orqali (u RLS'ni chetlab o'tadi): import, admin, bot.
 -- ---------------------------------------------------------------------------
+-- Lokal (oddiy) Postgres'da bu rollar yo'q — Supabase'da esa allaqachon bor.
+-- Shu blok ikkala muhitda ham skriptni ishlashini ta'minlaydi.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin noinherit;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin noinherit;
+  end if;
+end
+$$;
+
 alter table companies      enable row level security;
 alter table vacancies      enable row level security;
 alter table synonyms       enable row level security;

@@ -8,30 +8,37 @@ Ishlab chiqish konvensiyalari: [CLAUDE.md](./CLAUDE.md).
 
 ## Stack
 
-Next.js 15 (App Router) · Supabase Postgres + `pg_trgm` · Tailwind CSS 4 ·
-TypeScript · Vitest · SheetJS (`xlsx`)
+Next.js 15 (App Router) · PostgreSQL + `pg_trgm` (lokal yoki Supabase) ·
+Tailwind CSS 4 · TypeScript · Vitest · Recharts · SheetJS (`xlsx`)
 
-## Ishga tushirish
+## Lokalda ishga tushirish
 
 ```bash
 cd portal
 npm install
-cp .env.example .env.local     # Supabase kalitlarini to'ldiring
+cp .env.example .env.local     # standart qiymatlar lokal Postgres uchun tayyor
+
+npm run db:up                  # Postgres (Docker)
+npm run db:schema              # jadvallar, indekslar, sinonimlar
+
+# Excel faylni portal/data/ ga qo'ying
+npm run import:dry -- data/vakansiyalar.xlsx   # avval hisobotni ko'ring
+npm run import -- data/vakansiyalar.xlsx       # keyin bazaga yozing
+
 npm run dev                    # http://localhost:3000
 ```
 
-Bazani tayyorlash: Supabase SQL Editor'da [`supabase/schema.sql`](./supabase/schema.sql)
-ni ishga tushiring, so'ng Excel faylni yuklang:
+Docker bo'lmasa — istalgan Postgres 16 ishlaydi, `DATABASE_URL` ni
+`.env.local` da ko'rsating. `schema.sql` `pg_trgm` kengaytmasini o'zi
+yaratadi va ikkala muhitda ham (oddiy Postgres / Supabase) ishlaydi.
 
-```bash
-npm run import:dry -- data/vakansiyalar.xlsx   # avval hisobotni ko'ring
-npm run import -- data/vakansiyalar.xlsx       # keyin bazaga yozing
-```
+Admin panel: `.env.local` da `ADMIN_PASSWORD` ni o'rnating va
+`/admin` ni oching.
 
 ## Tekshiruv
 
 ```bash
-npm test          # normalize() va import qoidalari (39 test)
+npm test          # normalize, transliterate va import qoidalari (48 test)
 npm run typecheck
 npm run build
 ```
@@ -49,13 +56,31 @@ ish o'rnini topadi.
 
 ```
 portal/
-  src/lib/normalize.ts          qidiruv normallashtirish — sayt, import, bot uchun bitta manba
+  src/app/                      sahifalar: /, /vakansiyalar, /vakansiya/[id],
+                                /korxona/[stir], /tuman/[slug], /statistika, /admin
+  src/components/               SearchBox, VacancyCard, FilterPanel, DistrictMap ...
+  src/lib/normalize.ts          qidiruv kaliti — sayt, import, bot uchun bitta manba
+  src/lib/transliterate.ts      Lotin ↔ Кирилл (ko'rinadigan matn uchun)
+  src/lib/queries.ts            barcha SQL shu yerda
   src/lib/import-transform.ts   Excel → baza tozalash qoidalari (sof funksiyalar)
-  src/lib/supabase.ts           anon (o'qish) va service (import/admin) mijozlari
   scripts/import.ts             oylik importni yurituvchi skript
+  scripts/enrich.ts             korxonalarni tashqi manbadan boyitish (6-bosqich)
   supabase/schema.sql           jadvallar, indekslar, RLS siyosatlari
   data/                         Excel fayllari (git'ga tushmaydi)
 ```
+
+## Sahifalar
+
+| Yo'l | Nima bor |
+| --- | --- |
+| `/` | Hero qidiruv + jonli hisoblagich, tumanlar xaritasi, top kasblar |
+| `/vakansiyalar` | Ro'yxat + filtrlar (hammasi URL query'da, ulashsa bo'ladi) |
+| `/vakansiya/[id]` | To'liq ma'lumot, `tel:` tugma, o'xshash vakansiyalar, JobPosting schema |
+| `/korxona/[stir]` | Korxona kartasi + barcha vakansiyalari |
+| `/tuman/[slug]` | 12 ta SEO sahifa (statik generatsiya) |
+| `/statistika` | Ochiq analitika (Recharts) |
+| `/admin` | Parol bilan: import, tarix, sinonimlar, qidiruv loglari |
+| `/api/v1/vacancies` | Ochiq JSON API |
 
 ## Deploy
 

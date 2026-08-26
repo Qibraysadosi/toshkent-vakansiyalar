@@ -1,19 +1,168 @@
 @import 'tailwindcss';
 
-/*
- * 1-bosqich: faqat poydevor ranglari. To'liq dizayn-tizim (PLAN §5 —
- * Unbounded / Golos Text / IBM Plex Mono, koshin ko'ki) 3-bosqichda.
- */
+/* ==========================================================================
+   DIZAYN-TIZIM — PLAN.md §5 "Toshkent koshinlari"
+   Davlat ma'lumotiga ishonch + shahar identiteti. Sokin, aniq, professional.
+   ========================================================================== */
+
 @theme {
-  --color-siyoh: #10233a;
-  --color-chinni: #1391a5;
-  --color-chinni-toq: #0c6b7a;
-  --color-quyosh: #eba937;
-  --color-qogoz: #f7f4ee;
-  --color-tosh: #66707d;
+  /* --- §5.1 Ranglar ---------------------------------------------------- */
+  --color-siyoh: #10233a; /* asosiy matn, footer */
+  --color-chinni: #1391a5; /* asosiy aksent: linklar, CTA, faol filtr */
+  --color-chinni-toq: #0c6b7a; /* hover, bosilgan holat */
+  --color-quyosh: #eba937; /* ikkilamchi urg'u — ekranda BITTA joyda */
+  --color-qogoz: #f7f4ee; /* sahifa foni (iliq oq) */
+  --color-tosh: #66707d; /* ikkilamchi matn, meta */
+
+  --color-chiziq: #e2ded5; /* qog'oz ustidagi nozik chegara */
+  --color-oq: #ffffff;
+
+  /* --- §5.2 Tipografika ------------------------------------------------ */
+  --font-display: var(--font-unbounded), system-ui, sans-serif;
+  --font-sans: var(--font-golos), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --text-xs: 0.875rem; /* 14 */
+  --text-sm: 1rem; /* 16 — asos */
+  --text-base: 1.125rem; /* 18 */
+  --text-lg: 1.375rem; /* 22 */
+  --text-xl: 1.75rem; /* 28 */
+  --text-2xl: 2.5rem; /* 40 */
+  --text-3xl: 3.5rem; /* 56 */
+
+  --radius-karta: 0.75rem;
+}
+
+/* ==========================================================================
+   Asos
+   ========================================================================== */
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--color-qogoz);
   color: var(--color-siyoh);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.6; /* §5.2 — matnda 1.6 */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* §5.5 — klaviatura fokus halqalari ko'rinadi */
+:focus-visible {
+  outline: 2px solid var(--color-chinni);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-chinni) 22%, transparent);
+}
+
+/* Sarlavhalar zichroq — display shrift yirik o'lchamda ishlaydi */
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* Ma'lumot raqamlari ustma-ust tekis turadi (§5.2 — "reyestr" hissi) */
+.raqam {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   §5.5 Harakat — faqat uchta joyda. prefers-reduced-motion hurmat qilinadi.
+   ========================================================================== */
+
+@keyframes ko-tarilish {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Ro'yxat yangilanishida 150ms stagger-fade */
+.stagger > * {
+  animation: ko-tarilish 0.24s ease-out backwards;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 30ms; }
+.stagger > *:nth-child(3) { animation-delay: 60ms; }
+.stagger > *:nth-child(4) { animation-delay: 90ms; }
+.stagger > *:nth-child(5) { animation-delay: 120ms; }
+.stagger > *:nth-child(n + 6) { animation-delay: 150ms; }
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-chiziq);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.65), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   Xarita (§5.3 imzo element)
+   ========================================================================== */
+
+.tuman-poligon {
+  fill: var(--color-oq);
+  stroke: var(--color-chiziq);
+  stroke-width: 2;
+  transition: fill 0.18s ease, stroke 0.18s ease;
+  cursor: pointer;
+}
+.tuman-poligon:hover,
+.tuman-poligon:focus-visible {
+  fill: color-mix(in srgb, var(--color-chinni) 16%, white);
+  stroke: var(--color-chinni);
+}
+.tuman-guruh[data-faol='true'] .tuman-poligon {
+  fill: color-mix(in srgb, var(--color-chinni) 26%, white);
+  stroke: var(--color-chinni-toq);
+}
+.tuman-guruh text {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Bosma uchun: xarita va filtrlar kerak emas */
+@media print {
+  .bosmada-yashir {
+    display: none !important;
+  }
 }

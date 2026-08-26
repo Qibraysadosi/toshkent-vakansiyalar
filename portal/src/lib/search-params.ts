@@ -1,0 +1,140 @@
+import { DISTRICTS, districtBySlug, districtByDbName } from './districts';
+import { EDUCATION_LEVELS } from './format';
+import type { SearchParams, SortKey } from './queries';
+
+/**
+ * URL query ↔ qidiruv parametrlari. Hamma filtr URL'da turadi, shuning uchun
+ * natijani ulashsa bo'ladi (PLAN §6).
+ *
+ * Kalitlar o'zbekcha: ?q=qorovul&tuman=chilonzor&talim=oliy&maoshli=1
+ */
+
+export const PARAM = {
+  q: 'q',
+  district: 'tuman',
+  education: 'talim',
+  stavka: 'stavka',
+  salaryMin: 'maosh',
+  onlyWithSalary: 'maoshli',
+  onlyQuota: 'kvota',
+  sort: 'saralash',
+  page: 'sahifa',
+} as const;
+
+export const SORT_OPTIONS: { value: SortKey; lat: string; cyr: string }[] = [
+  { value: 'yangi', lat: 'Eng yangi', cyr: 'Энг янги' },
+  { value: 'maosh-kop', lat: "Maosh: ko'pdan", cyr: 'Маош: кўпдан' },
+  { value: 'maosh-kam', lat: 'Maosh: kamdan', cyr: 'Маош: камдан' },
+  { value: 'mashhur', lat: 'Mashhur', cyr: 'Машҳур' },
+];
+
+const EDUCATION_SLUGS: Record<string, string> = {
+  oliy: 'Олий',
+  'orta-maxsus': 'Ўрта-махсус',
+  'talab-etilmaydi': 'Талаб этилмайди',
+};
+const EDUCATION_TO_SLUG = new Map(Object.entries(EDUCATION_SLUGS).map(([k, v]) => [v, k]));
+
+export function educationSlug(db: string): string {
+  return EDUCATION_TO_SLUG.get(db) ?? db;
+}
+
+function all(params: URLSearchParams, key: string): string[] {
+  return params.getAll(key).flatMap((v) => v.split(',')).map((v) => v.trim()).filter(Boolean);
+}
+
+/** URL query → `searchVacancies()` parametrlari. Yaroqsiz qiymatlar tashlanadi. */
+export function parseSearchParams(params: URLSearchParams): SearchParams & { hasFilters: boolean } {
+  const districts = all(params, PARAM.district)
+    .map((slug) => districtBySlug(slug)?.db)
+    .filter((v): v is string => Boolean(v));
+
+  const education = all(params, PARAM.education)
+    .map((slug) => EDUCATION_SLUGS[slug])
+    .filter(Boolean);
+
+  const stavka = all(params, PARAM.stavka).filter((s) => /^\d+(\.\d+)?$/.test(s));
+
+  const salaryRaw = params.get(PARAM.salaryMin);
+  const salaryMin = salaryRaw && /^\d+$/.test(salaryRaw) ? Number(salaryRaw) : undefined;
+
+  const onlyWithSalary = params.get(PARAM.onlyWithSalary) === '1';
+  const onlyQuota = params.get(PARAM.onlyQuota) === '1';
+
+  const sortRaw = params.get(PARAM.sort);
+  const sort = SORT_OPTIONS.some((o) => o.value === sortRaw) ? (sortRaw as SortKey) : 'yangi';
+
+  const pageRaw = params.get(PARAM.page);
+  const page = pageRaw && /^\d+$/.test(pageRaw) ? Math.max(1, Number(pageRaw)) : 1;
+
+  const q = params.get(PARAM.q)?.trim() ?? '';
+
+  return {
+    q: q || undefined,
+    districts: districts.length ? districts : undefined,
+    education: education.length ? education : undefined,
+    stavka: stavka.length ? stavka : undefined,
+    // salaryMin qo'yilsa, maoshsizlar baribir chiqmaydi
+    salaryMin,
+    onlyWithSalary: onlyWithSalary || salaryMin !== undefined,
+    onlyQuota,
+    sort,
+    page,
+    hasFilters: Boolean(
+      q || districts.length || education.length || stavka.length || salaryMin || onlyWithSalary || onlyQuota,
+    ),
+  };
+}
+
+export interface ActiveChip {
+  key: string;
+  value: string;
+  label: string;
+}
+
+/** Ro'yxat tepasidagi faol filtr chiplari (✕ bilan olib tashlanadi). */
+export function activeChips(params: URLSearchParams, script: 'lat' | 'cyr'): ActiveChip[] {
+  const chips: ActiveChip[] = [];
+  const cyr = script === 'cyr';
+
+  for (const slug of all(params, PARAM.district)) {
+    const d = districtBySlug(slug);
+    if (d) chips.push({ key: PARAM.district, value: slug, label: cyr ? d.cyr : d.lat });
+  }
+  for (const slug of all(params, PARAM.education)) {
+    const db = EDUCATION_SLUGS[slug];
+    const level = EDUCATION_LEVELS.find((e) => e.db === db);
+    if (level) chips.push({ key: PARAM.education, value: slug, label: cyr ? level.cyr : level.lat });
+  }
+  for (const s of all(params, PARAM.stavka)) {
+    chips.push({ key: PARAM.stavka, value: s, label: `${s.replace('.', ',')} ${cyr ? 'ставка' : 'stavka'}` });
+  }
+  const salary = params.get(PARAM.salaryMin);
+  if (salary) {
+    const mln = Number(salary) / 1_000_000;
+    chips.push({
+      key: PARAM.salaryMin,
+      value: salary,
+      label: `${mln} ${cyr ? 'млн дан юқори' : 'mln dan yuqori'}`,
+    });
+  }
+  if (params.get(PARAM.onlyWithSalary) === '1') {
+    chips.push({
+      key: PARAM.onlyWithSalary,
+      value: '1',
+      label: cyr ? 'Маоши кўрсатилган' : "Maoshi ko'rsatilgan",
+    });
+  }
+  if (params.get(PARAM.onlyQuota) === '1') {
+    chips.push({ key: PARAM.onlyQuota, value: '1', label: cyr ? 'Квота' : 'Kvota' });
+  }
+  return chips;
+}
+
+/** Tuman nomidan slug (kartadagi havolalar uchun). */
+export function districtSlug(dbName: string): string | undefined {
+  return districtByDbName(dbName)?.slug;
+}
+
+export const ALL_DISTRICTS = DISTRICTS;
+export { EDUCATION_SLUGS };

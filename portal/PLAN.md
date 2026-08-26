@@ -237,32 +237,72 @@ Har bosqich = alohida sessiya. Oxirida: tekshiruv o'tdi → deploy → shu fayld
 
 ## Bosqichlar holati
 
-### 1. Poydevor — ✅ bajarildi (2026-08-24)
+| # | Bosqich | Holat |
+|---|---|---|
+| 1 | Poydevor | ✅ |
+| 2 | MVP UI | ✅ |
+| 3 | Dizayn-tizim + xarita | ✅ |
+| 4 | Qidiruv v2 + alifbo | ✅ |
+| 5 | Admin | ✅ |
+| 6 | Boyitish + statistika | ◐ statistika va korxona sahifalari tayyor; boyitish manbasi tasdiqlanmagan |
+| 7 | Telegram + sayqal | ◐ OG/PWA/sitemap/JobPosting tayyor; bot yozilmagan |
 
-`portal/` papkasida: Next.js 15 (App Router, TS, Tailwind 4) + Supabase mijozi,
-`supabase/schema.sql`, `src/lib/normalize.ts` (+39 unit-test),
-`src/lib/import-transform.ts`, `scripts/import.ts`.
+Hammasi lokalda ishlaydi: `npm run db:up && npm run db:schema && npm run import -- data/fayl.xlsx && npm run dev`.
 
-**Tekshiruv natijalari** (2026-07 fayli, 15 174 qator):
+### 1. Poydevor — ✅
+
+`portal/`: Next.js 15 (App Router, TS, Tailwind 4), `supabase/schema.sql`,
+`src/lib/normalize.ts`, `src/lib/import-transform.ts`, `scripts/import.ts`.
+
+**Tekshiruv** (2026-07 fayli, 15 174 qator):
 
 | Mezon | Kutilgan | Chiqdi |
 | --- | --- | --- |
-| Birlashgan qatorlar | ~12 ming | **12 163** (3 011 takror birlashtirildi; `sum(positions_count)` = 15 174) |
-| `"qorovul"` SQL'da | 60+ | **62 ta ish o'rni** (57 yozuv). Normalize'siz — atigi 6 ta |
-| Korxonalar | — | 1 035 |
-| Tumanlar | 12 | 12 |
+| Birlashgan qatorlar | ~12 ming | **12 163** (3 011 takror; `sum(positions_count)` = 15 174) |
+| `"qorovul"` SQL'da | 60+ | **62 ta ish o'rni**. Normalize'siz — 6 ta |
+| Korxonalar / tumanlar | — / 12 | 1 035 / 12 |
 | Import xatolari | 0 | 0 |
 
-Sxema haqiqiy PostgreSQL 16 + `pg_trgm` da tekshirildi: ikki marta qo'llanganda
-xato bermaydi, `idx_vac_pos_trgm` GIN indeksi ILIKE so'rovida ishlatiladi
-(Bitmap Index Scan), `similarity()` fuzzy fallback "qarovul" → "Қоровул" ni topadi.
+Sxema haqiqiy PostgreSQL 16 + `pg_trgm` da sinaldi: ikki marta qo'llanganda
+xato bermaydi, GIN trgm indeksi ILIKE so'rovida ishlatiladi, `similarity()`
+fuzzy fallback "qarovul" → "Қоровул" ni topadi. Oylik almashtirish sinovdan
+o'tdi: yangi batch qo'shildi → eski 12 163 qator o'chirildi → korxonalar
+(1 035) saqlanib qoldi.
 
-**Qolgan ish (kalit kerak):** Supabase loyihasi ochilib `.env.local` to'ldirilishi,
-`schema.sql` qo'llanishi va `npm run import` real bazaga yuritilishi. Keyin Vercel
-deploy (Root Directory = `portal`).
+### 2–5. MVP UI, dizayn-tizim, qidiruv v2, admin — ✅
 
-**PLAN'dan chetlanish (1 ta):** maosh uchun pastki chegara qo'shildi —
-`< 10 000 so'm` ham `salary_note='Aniqlashtirilmoqda'` bo'ladi. Sabab: real
-bazada 61 qatorda maosh "9 so'm", "1 so'm", "600 so'm" deb yozilgan; eng kichik
-stavkada ham minimal ish haqi ~11 550 so'm, ya'ni bu texnik xato.
-O'zgartirish: `MIN_PLAUSIBLE_SALARY` (`src/lib/import-transform.ts`).
+- `/`, `/vakansiyalar`, `/vakansiya/[id]`, `/korxona/[stir]`, `/tuman/[slug]`
+  (12 ta SSG), `/statistika`, `/admin`.
+- Filtrlar URL query'da (`?q=&tuman=&talim=&stavka=&maosh=&maoshli=&kvota=&saralash=&sahifa=`)
+  — natijani ulashsa bo'ladi. Desktop'da chap ustun, mobilda pastdan sheet.
+- Autocomplete (250 ms debounce, top-6 + ish o'rni soni), sinonimlar,
+  `search_logs` va bosh sahifadagi "Ko'p qidirilayotganlar" chiplari.
+- Lotin/Кирилл tugmasi butun saytni o'giradi (cookie orqali, server tomonda —
+  sahifa "sakramaydi"). Test bu bilan qidiruv buzilmasligini qotirgan:
+  `normalize(transliterate(x,'lat')) === normalize(x)`.
+- Xarita — 12 ta poligon, markazga qarab kichraytirilgan ("koshin" effekti),
+  jonli sonlar, hover'da yonadi, bosilganda tuman sahifasi. Mobilda chip-grid.
+- Admin: parol (HMAC cookie, `timingSafeEqual`), .xlsx yuklash, import tarixi,
+  sifat hisoboti, sinonim boshqaruvi, qidiruv loglari (0 natijalar qizil).
+
+### 6–7. Qolgan ish
+
+- **Boyitish manbasi** tasdiqlanmagan: `stat.uz` va `data.egov.uz` bu muhitdan
+  bloklangan. `npm run enrich:probe` skripti tayyor — O'zbekistondan ishga
+  tushiring. Manba topilmasa sayt PLAN §8 zaxira rejasi bo'yicha ishlayveradi
+  (Excel ma'lumoti + korxona sahifasidagi orginfo.uz havolasi).
+- **Telegram bot** yozilmagan — `TG_BOT_TOKEN` kerak.
+- Lighthouse o'lchovi va domen ulash — deploydan keyin.
+
+### PLAN'dan chetlanishlar (3 ta)
+
+1. **Maoshga pastki chegara.** `< 10 000 so'm` ham `salary_note='Aniqlashtirilmoqda'`.
+   Sabab: bazada 61 qatorda maosh "9 so'm", "1 so'm", "600 so'm" deb yozilgan;
+   eng kichik stavkada ham minimal ish haqi ~11 550 so'm.
+   O'zgartirish: `MIN_PLAUSIBLE_SALARY` (`src/lib/import-transform.ts`).
+2. **Baza qatlami `pg`, `supabase-js` emas.** Bitta `DATABASE_URL` bilan lokal
+   Postgres ham, Supabase ham ishlaydi; `similarity()` va autocomplete
+   guruhlashi PostgREST orqali imkonsiz. RLS siyosatlari `schema.sql` da qoldi.
+3. **shadcn/ui ishlatilmadi.** Kerak bo'lgan komponentlar (karta, chip, sheet,
+   autocomplete) 5-bo'lim tokenlariga to'g'ridan-to'g'ri yozildi — qo'shimcha
+   bog'liqlik va uslub qatlami olib tashlandi.

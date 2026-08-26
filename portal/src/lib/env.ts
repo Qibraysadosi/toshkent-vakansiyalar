@@ -1,34 +1,20 @@
 /**
- * Muhit o'zgaruvchilari. Server-only kalitlar client bundle'ga tushib
- * qolmasligi uchun alohida funksiyalarga ajratilgan — `serverEnv()` faqat
- * server komponent / route handler / skriptdan chaqiriladi.
+ * Muhit o'zgaruvchilari. `DATABASE_URL` va `ADMIN_PASSWORD` — faqat server
+ * tomonda; ular hech qachon client bundle'ga tushmaydi, chunki bu modul
+ * `server-only` bog'liqligi bor fayllardan chaqiriladi.
  */
 
-function required(name: string, value: string | undefined): string {
-  if (!value) {
-    throw new Error(
-      `${name} o'rnatilmagan. .env.example dan nusxa olib .env.local yarating ` +
-        `(Supabase → Settings → API).`,
-    );
-  }
-  return value;
+/** Sayt manzili — sitemap, robots va OG rasmlar uchun. */
+export function siteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicit) return explicit.replace(/\/$/, '');
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://localhost:3000';
 }
 
-/** Brauzerda ham ochiq bo'ladigan qiymatlar (RLS bilan himoyalangan). */
-export function publicEnv() {
-  return {
-    supabaseUrl: required('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL),
-    supabaseAnonKey: required('NEXT_PUBLIC_SUPABASE_ANON_KEY', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-  };
-}
-
-/** FAQAT server. service_role RLS'ni chetlab o'tadi — brauzerga chiqmasin. */
-export function serverEnv() {
-  if (typeof window !== 'undefined') {
-    throw new Error('serverEnv() brauzerda chaqirilmaydi — SUPABASE_SERVICE_KEY sir.');
-  }
-  return {
-    supabaseUrl: required('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL),
-    supabaseServiceKey: required('SUPABASE_SERVICE_KEY', process.env.SUPABASE_SERVICE_KEY),
-  };
+/** Admin paroli. O'rnatilmagan bo'lsa admin panel butunlay yopiq. */
+export function adminPassword(): string | null {
+  const p = process.env.ADMIN_PASSWORD;
+  return p && p.length > 0 ? p : null;
 }

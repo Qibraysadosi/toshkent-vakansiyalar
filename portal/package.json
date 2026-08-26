@@ -12,17 +12,26 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "import": "tsx scripts/import.ts",
-    "import:dry": "tsx scripts/import.ts --dry-run"
+    "import:dry": "tsx scripts/import.ts --dry-run",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:schema": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f supabase/schema.sql",
+    "db:reset": "psql \"$DATABASE_URL\" -c \"drop table if exists vacancies, companies, synonyms, search_logs, subscriptions, import_history cascade\" && npm run db:schema",
+    "enrich": "tsx scripts/enrich.ts",
+    "enrich:probe": "tsx scripts/enrich.ts --probe"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.4",
     "next": "^15.5.23",
+    "pg": "^8.23.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "recharts": "^3.10.1",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.19.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "dotenv": "^16.6.1",

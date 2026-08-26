@@ -1,0 +1,23 @@
+# Lokal ishlab chiqish uchun Postgres (pg_trgm bilan).
+#   docker compose up -d
+#   npm run db:schema
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vakansiyalar-db
+    environment:
+      POSTGRES_USER: vak
+      POSTGRES_PASSWORD: vak
+      POSTGRES_DB: vakansiyalar
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vak -d vakansiyalar']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

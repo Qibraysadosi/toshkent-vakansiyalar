@@ -15,7 +15,7 @@ import { dirname, resolve } from 'node:path';
 import { config as loadEnv } from 'dotenv';
 import * as XLSX from 'xlsx';
 import { transformRows, type ImportReport } from '../src/lib/import-transform';
-import { createServiceClient } from '../src/lib/supabase';
+import { closePool, transaction } from '../src/lib/db';
 import type { CompanyRow, VacancyRow } from '../src/lib/database.types';
 
 loadEnv({ path: '.env.local', quiet: true });
@@ -102,63 +102,92 @@ function printReport(r: ImportReport, batch: string, dryRun: boolean) {
   console.log('='.repeat(60) + '\n');
 }
 
+/** Ko'p qatorli INSERT uchun $1,$2,... to'plamlarini yasaydi. */
+function placeholders(rowCount: number, colCount: number, offset = 0): string {
+  const groups: string[] = [];
+  for (let r = 0; r < rowCount; r++) {
+    const cells: string[] = [];
+    for (let c = 0; c < colCount; c++) cells.push(`$${offset + r * colCount + c + 1}`);
+    groups.push(`(${cells.join(',')})`);
+  }
+  return groups.join(',');
+}
+
 async function writeToDatabase(
   companies: CompanyRow[],
   vacancies: Omit<VacancyRow, 'id' | 'views'>[],
   batch: string,
   report: ImportReport,
 ) {
-  const db = createServiceClient();
+  await transaction(async (client) => {
+    // 1) companies — upsert. Boyitilgan ustunlar (official_name, address, ...)
+    //    ustidan yozilmaydi, chunki ular INSERT ro'yxatida yo'q.
+    console.log(`companies upsert: ${companies.length} ta...`);
+    const COMPANY_COLS = ['stir', 'name', 'name_search', 'phone', 'district'] as const;
+    for (let i = 0; i < companies.length; i += CHUNK) {
+      const slice = companies.slice(i, i + CHUNK);
+      const values = slice.flatMap((c) => COMPANY_COLS.map((k) => c[k]));
+      await client.query(
+        `insert into companies (${COMPANY_COLS.join(',')})
+         values ${placeholders(slice.length, COMPANY_COLS.length)}
+         on conflict (stir) do update set
+           name = excluded.name,
+           name_search = excluded.name_search,
+           phone = excluded.phone,
+           district = excluded.district`,
+        values,
+      );
+      process.stdout.write(`  ${Math.min(i + CHUNK, companies.length)}/${companies.length}\r`);
+    }
+    console.log(`  ${companies.length}/${companies.length} tayyor.`);
 
-  // 1) companies — upsert. Boyitilgan ustunlar (official_name, address, ...)
-  //    ustidan yozilmasligi uchun faqat Excel'dan keladigan maydonlar beriladi.
-  console.log(`companies upsert: ${companies.length} ta...`);
-  for (let i = 0; i < companies.length; i += CHUNK) {
-    const slice = companies.slice(i, i + CHUNK).map((c) => ({
-      stir: c.stir,
-      name: c.name,
-      name_search: c.name_search,
-      phone: c.phone,
-      district: c.district,
-    }));
-    const { error } = await db.from('companies').upsert(slice, { onConflict: 'stir' });
-    if (error) throw new Error(`companies upsert xatosi: ${error.message}`);
-    process.stdout.write(`  ${Math.min(i + CHUNK, companies.length)}/${companies.length}\r`);
-  }
-  console.log(`  ${companies.length}/${companies.length} tayyor.`);
+    // 2) vacancies — yangi batch qo'shiladi (eski batch hali joyida turadi)
+    console.log(`vacancies insert: ${vacancies.length} ta...`);
+    const VACANCY_COLS = [
+      'stir', 'district', 'department', 'position', 'position_search', 'posted_date',
+      'stavka', 'salary', 'salary_note', 'education', 'quota', 'positions_count', 'import_batch',
+    ] as const;
+    for (let i = 0; i < vacancies.length; i += CHUNK) {
+      const slice = vacancies.slice(i, i + CHUNK);
+      const values = slice.flatMap((v) => VACANCY_COLS.map((k) => v[k]));
+      await client.query(
+        `insert into vacancies (${VACANCY_COLS.join(',')})
+         values ${placeholders(slice.length, VACANCY_COLS.length)}`,
+        values,
+      );
+      process.stdout.write(`  ${Math.min(i + CHUNK, vacancies.length)}/${vacancies.length}\r`);
+    }
+    console.log(`  ${vacancies.length}/${vacancies.length} tayyor.`);
 
-  // 2) vacancies — yangi batch bilan qo'shiladi (eski batch hali joyida)
-  console.log(`vacancies insert: ${vacancies.length} ta...`);
-  for (let i = 0; i < vacancies.length; i += CHUNK) {
-    const { error } = await db.from('vacancies').insert(vacancies.slice(i, i + CHUNK));
-    if (error) throw new Error(`vacancies insert xatosi: ${error.message}`);
-    process.stdout.write(`  ${Math.min(i + CHUNK, vacancies.length)}/${vacancies.length}\r`);
-  }
-  console.log(`  ${vacancies.length}/${vacancies.length} tayyor.`);
+    // 3) eski batchlarni o'chirish — to'liq almashtirish (PLAN §7)
+    const del = await client.query('delete from vacancies where import_batch <> $1', [batch]);
+    console.log(`eski vakansiyalar o'chirildi: ${del.rowCount ?? 0} ta`);
 
-  // 3) eski batchlarni o'chirish — to'liq almashtirish
-  const { error: delError, count } = await db
-    .from('vacancies')
-    .delete({ count: 'exact' })
-    .neq('import_batch', batch);
-  if (delError) throw new Error(`eski batchni o'chirishda xato: ${delError.message}`);
-  console.log(`eski vakansiyalar o'chirildi: ${count ?? 0} ta`);
-
-  // 4) import tarixi
-  const { error: histError } = await db.from('import_history').insert({
-    batch,
-    rows_read: report.rowsRead,
-    rows_merged: report.rowsMerged,
-    errors: {
-      skipped: report.skipped,
-      duplicatesMerged: report.duplicatesMerged,
-      salaryTooHigh: report.salaryTooHigh,
-      salaryTooLow: report.salaryTooLow,
-      salaryScheduleNote: report.salaryScheduleNote,
-      rows: report.errors.slice(0, 500),
-    },
+    // 4) import tarixi
+    await client.query(
+      `insert into import_history (batch, rows_read, rows_merged, errors)
+       values ($1, $2, $3, $4)
+       on conflict (batch) do update set
+         rows_read = excluded.rows_read,
+         rows_merged = excluded.rows_merged,
+         errors = excluded.errors`,
+      [
+        batch,
+        report.rowsRead,
+        report.rowsMerged,
+        JSON.stringify({
+          skipped: report.skipped,
+          duplicatesMerged: report.duplicatesMerged,
+          companies: report.companies,
+          salaryNumeric: report.salaryNumeric,
+          salaryScheduleNote: report.salaryScheduleNote,
+          salaryTooHigh: report.salaryTooHigh,
+          salaryTooLow: report.salaryTooLow,
+          rows: report.errors.slice(0, 500),
+        }),
+      ],
+    );
   });
-  if (histError) throw new Error(`import_history yozishda xato: ${histError.message}`);
 }
 
 async function main() {
@@ -186,7 +215,9 @@ async function main() {
   console.log(`\nImport tugadi. Batch: ${args.batch}`);
 }
 
-main().catch((err: unknown) => {
-  console.error(`\nXATO: ${err instanceof Error ? err.message : String(err)}`);
-  process.exitCode = 1;
-});
+main()
+  .catch((err: unknown) => {
+    console.error(`\nXATO: ${err instanceof Error ? err.message : String(err)}`);
+    process.exitCode = 1;
+  })
+  .finally(() => closePool());

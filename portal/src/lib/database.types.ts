@@ -1,6 +1,10 @@
 /**
- * Baza turlari — supabase/schema.sql bilan qo'lda mos yuritiladi.
+ * Jadval qatorlari turlari — `supabase/schema.sql` bilan qo'lda mos yuritiladi.
  * Sxema o'zgarsa, shu fayl ham yangilanadi.
+ *
+ * Eslatma: qiymatlar `pg` drayveridan kelganda `numeric` ustunlar STRING
+ * bo'lib keladi (aniqlik yo'qolmasligi uchun) — `queries.ts` da Number() bilan
+ * o'giriladi.
  */
 
 export type CompanyRow = {
@@ -61,65 +65,4 @@ export type ImportHistoryRow = {
   rows_merged: number | null;
   errors: unknown;
   created_at: string;
-}
-
-/** Insert paytida server tomonidan to'ldiriladigan maydonlar tashlab ketiladi. */
-type Insert<T, OptionalKeys extends keyof T> = Omit<T, OptionalKeys> & Partial<Pick<T, OptionalKeys>>;
-
-/** vacancies.stir -> companies.stir tashqi kaliti. */
-type VacancyRelationships = [
-  {
-    foreignKeyName: 'vacancies_stir_fkey';
-    columns: ['stir'];
-    isOneToOne: false;
-    referencedRelation: 'companies';
-    referencedColumns: ['stir'];
-  },
-];
-
-export type Database = {
-  public: {
-    Tables: {
-      companies: {
-        Row: CompanyRow;
-        Insert: Insert<CompanyRow, 'phone' | 'district' | 'official_name' | 'address' | 'activity_type' | 'registered_date' | 'status' | 'enriched_at'>;
-        Update: Partial<CompanyRow>;
-        Relationships: [];
-      };
-      vacancies: {
-        Row: VacancyRow;
-        Insert: Insert<VacancyRow, 'id' | 'positions_count' | 'views' | 'department' | 'posted_date' | 'stavka' | 'salary' | 'salary_note' | 'education' | 'quota'>;
-        Update: Partial<VacancyRow>;
-        Relationships: VacancyRelationships;
-      };
-      synonyms: {
-        Row: SynonymRow;
-        Insert: SynonymRow;
-        Update: Partial<SynonymRow>;
-        Relationships: [];
-      };
-      search_logs: {
-        Row: SearchLogRow;
-        Insert: Insert<SearchLogRow, 'id' | 'created_at'>;
-        Update: Partial<SearchLogRow>;
-        Relationships: [];
-      };
-      subscriptions: {
-        Row: SubscriptionRow;
-        Insert: Insert<SubscriptionRow, 'id' | 'created_at'>;
-        Update: Partial<SubscriptionRow>;
-        Relationships: [];
-      };
-      import_history: {
-        Row: ImportHistoryRow;
-        Insert: Insert<ImportHistoryRow, 'created_at'>;
-        Update: Partial<ImportHistoryRow>;
-        Relationships: [];
-      };
-    };
-    Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
-    Enums: { [_ in never]: never };
-    CompositeTypes: { [_ in never]: never };
-  };
 }
