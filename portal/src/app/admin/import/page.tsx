@@ -4,6 +4,9 @@ import { ImportWizard } from '../forms';
 import { Card, Empty, TableWrap, td, th } from '../ui';
 
 export const metadata = { title: 'Import' };
+// Vercel: import (tozalash + 12 ming qator yozish) 10 soniyalik standart
+// chegaradan uzoqroq davom etishi mumkin.
+export const maxDuration = 60;
 
 export default async function AdminImportPage() {
   const history = await getImportHistory(20);
