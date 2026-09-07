@@ -1,5 +1,6 @@
 import { DISTRICTS, districtBySlug, districtByDbName } from './districts';
 import { EDUCATION_LEVELS } from './format';
+import { QUOTAS, quotaBySlug } from './quotas';
 import type { SearchParams, SortKey } from './queries';
 
 /**
@@ -59,7 +60,13 @@ export function parseSearchParams(params: URLSearchParams): SearchParams & { has
   const salaryMin = salaryRaw && /^\d+$/.test(salaryRaw) ? Number(salaryRaw) : undefined;
 
   const onlyWithSalary = params.get(PARAM.onlyWithSalary) === '1';
-  const onlyQuota = params.get(PARAM.onlyQuota) === '1';
+
+  // kvota=1 → istalgan kvota; kvota=nogironlik,pensiya-oldi → aniq toifalar
+  const quotaRaw = all(params, PARAM.onlyQuota);
+  const onlyQuota = quotaRaw.includes('1');
+  const quotas = quotaRaw
+    .map((slug) => quotaBySlug(slug)?.db)
+    .filter((v): v is string => Boolean(v));
 
   const sortRaw = params.get(PARAM.sort);
   const sort = SORT_OPTIONS.some((o) => o.value === sortRaw) ? (sortRaw as SortKey) : 'yangi';
@@ -77,11 +84,13 @@ export function parseSearchParams(params: URLSearchParams): SearchParams & { has
     // salaryMin qo'yilsa, maoshsizlar baribir chiqmaydi
     salaryMin,
     onlyWithSalary: onlyWithSalary || salaryMin !== undefined,
-    onlyQuota,
+    onlyQuota: onlyQuota && quotas.length === 0,
+    quotas: quotas.length ? quotas : undefined,
     sort,
     page,
     hasFilters: Boolean(
-      q || districts.length || education.length || stavka.length || salaryMin || onlyWithSalary || onlyQuota,
+      q || districts.length || education.length || stavka.length || salaryMin || onlyWithSalary ||
+        onlyQuota || quotas.length,
     ),
   };
 }
@@ -125,8 +134,13 @@ export function activeChips(params: URLSearchParams, script: 'lat' | 'cyr'): Act
       label: cyr ? 'Маоши кўрсатилган' : "Maoshi ko'rsatilgan",
     });
   }
-  if (params.get(PARAM.onlyQuota) === '1') {
-    chips.push({ key: PARAM.onlyQuota, value: '1', label: cyr ? 'Квота' : 'Kvota' });
+  for (const raw of all(params, PARAM.onlyQuota)) {
+    if (raw === '1') {
+      chips.push({ key: PARAM.onlyQuota, value: '1', label: cyr ? 'Квота' : 'Kvota' });
+      continue;
+    }
+    const q = quotaBySlug(raw);
+    if (q) chips.push({ key: PARAM.onlyQuota, value: raw, label: cyr ? q.cyr : q.lat });
   }
   return chips;
 }
@@ -137,4 +151,5 @@ export function districtSlug(dbName: string): string | undefined {
 }
 
 export const ALL_DISTRICTS = DISTRICTS;
+export const ALL_QUOTAS = QUOTAS;
 export { EDUCATION_SLUGS };

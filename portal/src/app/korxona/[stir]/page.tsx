@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getCompany, searchVacancies } from '@/lib/queries';
+import { getCompany, getLatestPostedDate, searchVacancies } from '@/lib/queries';
 import { getScript } from '@/lib/script';
 import { districtLabel } from '@/lib/districts';
 import { transliterate } from '@/lib/transliterate';
@@ -79,7 +79,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ stir: 
   const t = TEXT[script];
   const cyr = script === 'cyr';
 
-  const result = await searchVacancies({ stir, perPage: 50, sort: 'yangi' });
+  const [result, newSince] = await Promise.all([
+    searchVacancies({ stir, perPage: 50, sort: 'yangi' }),
+    getLatestPostedDate(),
+  ]);
   const phones = splitPhones(company.phone);
 
   return (
@@ -98,7 +101,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ stir: 
         {company.district && ` · ${districtLabel(company.district, script)}`}
       </p>
 
-      <dl className="mt-7 rounded-karta border border-chiziq bg-oq px-6 py-2">
+      <dl className="mt-7 rounded-karta border border-chiziq bg-yuza px-6 py-2">
         <Row label={t.stir}>
           <span className="raqam">{company.stir}</span>
         </Row>
@@ -139,7 +142,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ stir: 
         <ul className="stagger grid gap-3">
           {result.rows.map((v) => (
             <li key={v.id}>
-              <VacancyCard v={v} script={script} />
+              <VacancyCard v={v} script={script} newSince={newSince} />
             </li>
           ))}
         </ul>

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useState } from 'react';
-import { ALL_DISTRICTS, PARAM, SORT_OPTIONS, activeChips, educationSlug } from '@/lib/search-params';
+import { ALL_DISTRICTS, ALL_QUOTAS, PARAM, SORT_OPTIONS, activeChips, educationSlug } from '@/lib/search-params';
 import { EDUCATION_LEVELS, SALARY_STEPS, STAVKA_OPTIONS, formatNumber } from '@/lib/format';
 import type { Script } from '@/lib/transliterate';
 
@@ -15,6 +15,7 @@ const TEXT = {
     salary: 'Maosh',
     onlyWithSalary: "Faqat maoshi ko'rsatilganlar",
     onlyQuota: "Kvota yo'nalishi bo'yicha",
+    quota: 'Kvota toifasi',
     clear: 'Tozalash',
     apply: "Ko'rsatish",
     sort: 'Saralash',
@@ -28,6 +29,7 @@ const TEXT = {
     salary: 'Маош',
     onlyWithSalary: 'Фақат маоши кўрсатилганлар',
     onlyQuota: 'Квота йўналиши бўйича',
+    quota: 'Квота тоифаси',
     clear: 'Тозалаш',
     apply: 'Кўрсатиш',
     sort: 'Саралаш',
@@ -63,7 +65,7 @@ function Check({
         onChange={onChange}
         className="size-4 shrink-0 accent-[var(--color-chinni)]"
       />
-      <span className={checked ? 'text-siyoh' : 'text-tosh'}>{label}</span>
+      <span className={checked ? 'text-matn' : 'text-tosh'}>{label}</span>
       {count !== undefined && (
         <span className="raqam ml-auto text-xs text-tosh/70">{formatNumber(count)}</span>
       )}
@@ -74,9 +76,11 @@ function Check({
 export function FilterPanel({
   script,
   districtCounts,
+  quotaCounts = {},
 }: {
   script: Script;
   districtCounts: Record<string, number>;
+  quotaCounts?: Record<string, number>;
 }) {
   const t = TEXT[script];
   const router = useRouter();
@@ -160,7 +164,7 @@ export function FilterPanel({
                 className={
                   on
                     ? 'raqam rounded-full bg-chinni px-3 py-1 text-xs text-white'
-                    : 'raqam rounded-full border border-chiziq bg-oq px-3 py-1 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
+                    : 'raqam rounded-full border border-chiziq bg-yuza px-3 py-1 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
                 }
               >
                 {s.label}
@@ -183,7 +187,7 @@ export function FilterPanel({
                 className={
                   on
                     ? 'rounded-full bg-chinni px-3 py-1 text-xs text-white'
-                    : 'rounded-full border border-chiziq bg-oq px-3 py-1 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
+                    : 'rounded-full border border-chiziq bg-yuza px-3 py-1 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
                 }
               >
                 {s.label}
@@ -199,12 +203,31 @@ export function FilterPanel({
             }
             label={t.onlyWithSalary}
           />
-          <Check
-            checked={params.get(PARAM.onlyQuota) === '1'}
-            onChange={() => setSingle(PARAM.onlyQuota, params.get(PARAM.onlyQuota) === '1' ? null : '1')}
-            label={t.onlyQuota}
-          />
         </div>
+      </Section>
+
+      <Section title={t.quota}>
+        <Check
+          checked={has(PARAM.onlyQuota, '1')}
+          onChange={() => toggleMulti(PARAM.onlyQuota, '1')}
+          label={t.onlyQuota}
+        />
+        <details className="mt-1">
+          <summary className="cursor-pointer py-1 text-xs text-tosh hover:text-chinni">
+            {script === 'cyr' ? 'Тоифа бўйича' : "Toifa bo'yicha"}
+          </summary>
+          <div className="mt-1">
+            {ALL_QUOTAS.map((q) => (
+              <Check
+                key={q.slug}
+                checked={has(PARAM.onlyQuota, q.slug)}
+                onChange={() => toggleMulti(PARAM.onlyQuota, q.slug)}
+                label={script === 'cyr' ? q.cyr : q.lat}
+                count={quotaCounts[q.db]}
+              />
+            ))}
+          </div>
+        </details>
       </Section>
 
       {chips.length > 0 && (
@@ -240,7 +263,7 @@ export function FilterPanel({
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="flex-1 rounded-karta border border-chiziq bg-oq px-4 py-2.5 text-sm font-500"
+            className="flex-1 rounded-karta border border-chiziq bg-yuza px-4 py-2.5 text-sm font-500"
           >
             {t.filters}
             {chips.length > 0 && <span className="raqam ml-1.5 text-chinni">({chips.length})</span>}
@@ -250,7 +273,7 @@ export function FilterPanel({
             value={params.get(PARAM.sort) ?? 'yangi'}
             onChange={(e) => setSingle(PARAM.sort, e.target.value)}
             aria-label={t.sort}
-            className="rounded-karta border border-chiziq bg-oq px-3 py-2.5 text-sm"
+            className="rounded-karta border border-chiziq bg-yuza px-3 py-2.5 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -268,13 +291,13 @@ export function FilterPanel({
               onClick={() => setSheetOpen(false)}
               className="absolute inset-0 bg-siyoh/40"
             />
-            <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-qogoz p-5 pb-8">
+            <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-fon p-5 pb-8">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-base font-600">{t.filters}</h2>
                 <button
                   type="button"
                   onClick={() => setSheetOpen(false)}
-                  className="rounded-full px-3 py-1 text-xs text-tosh hover:text-siyoh"
+                  className="rounded-full px-3 py-1 text-xs text-tosh hover:text-matn"
                 >
                   {t.close}
                 </button>

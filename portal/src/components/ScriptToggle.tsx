@@ -21,7 +21,7 @@ export function ScriptToggle({ current }: { current: Script }) {
     <div
       role="group"
       aria-label="Alifbo"
-      className="inline-flex overflow-hidden rounded-full border border-chiziq bg-oq text-xs"
+      className="inline-flex overflow-hidden rounded-full border border-chiziq bg-yuza text-xs"
       data-pending={pending}
     >
       {(
@@ -38,7 +38,7 @@ export function ScriptToggle({ current }: { current: Script }) {
           className={
             current === value
               ? 'bg-chinni px-3 py-1.5 font-medium text-white'
-              : 'px-3 py-1.5 text-tosh transition-colors hover:text-siyoh'
+              : 'px-3 py-1.5 text-tosh transition-colors hover:text-matn'
           }
         >
           {label}

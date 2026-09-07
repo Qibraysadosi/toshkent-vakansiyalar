@@ -6,6 +6,7 @@ import { formatNumber } from '@/lib/format';
 import { CountUp } from '@/components/CountUp';
 import { DistrictMap } from '@/components/DistrictMap';
 import { SearchBox } from '@/components/SearchBox';
+import { RecentlyViewed } from '@/components/RecentlyViewed';
 
 export const revalidate = 3600; // PLAN §10 — ro'yxatlar 1 soat
 
@@ -58,8 +59,10 @@ export default async function HomePage() {
   return (
     <>
       {/* --- Hero -------------------------------------------------------- */}
-      <section className="mx-auto max-w-6xl px-4 pb-14 pt-12 sm:px-6 sm:pt-20">
-        <h1 className="font-display text-2xl font-700 leading-[1.05] sm:text-3xl">
+      <section className="relative">
+        <div aria-hidden className="koshin-fon pointer-events-none absolute inset-0" />
+        <div className="relative mx-auto max-w-6xl px-4 pb-14 pt-12 sm:px-6 sm:pt-20">
+        <h1 className="hero-sarlavha font-display font-700">
           {t.h1a}
           <br />
           <span className="text-chinni">{t.h1b}</span>
@@ -88,12 +91,15 @@ export default async function HomePage() {
           ].map((s) => (
             <div key={s.k}>
               <dt className="sr-only">{s.k}</dt>
-              <dd className="font-display text-lg font-600 text-siyoh">{s.v}</dd>
+              <dd className="font-display text-lg font-600 text-matn">{s.v}</dd>
               <p className="text-xs text-tosh">{s.k}</p>
             </div>
           ))}
         </dl>
+        </div>
       </section>
+
+      <RecentlyViewed script={script} />
 
       {/* --- Ko'p qidirilayotganlar (PLAN §3.3) -------------------------- */}
       {topSearches.length > 0 && (
@@ -104,7 +110,7 @@ export default async function HomePage() {
               <li key={s.query_norm}>
                 <Link
                   href={`/vakansiyalar?q=${encodeURIComponent(s.query_norm)}`}
-                  className="inline-block rounded-full border border-chiziq bg-oq px-3.5 py-1.5 text-xs transition-colors hover:border-chinni hover:text-chinni"
+                  className="inline-block rounded-full border border-chiziq bg-yuza px-3.5 py-1.5 text-xs transition-colors hover:border-chinni hover:text-chinni"
                 >
                   {transliterate(s.query_norm, script)}
                 </Link>
@@ -115,7 +121,7 @@ export default async function HomePage() {
       )}
 
       {/* --- IMZO ELEMENT: tumanlar xaritasi (§5.3) ---------------------- */}
-      <section className="border-y border-chiziq bg-oq/50 py-14">
+      <section className="border-y border-chiziq bg-yuza/50 py-14">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <h2 className="font-display text-xl font-600">{t.districts}</h2>
           <p className="mt-2 text-sm text-tosh">{t.districtsLead}</p>
@@ -139,7 +145,7 @@ export default async function HomePage() {
             <li key={p.position_search}>
               <Link
                 href={`/vakansiyalar?q=${encodeURIComponent(p.position_search)}`}
-                className="flex items-center justify-between gap-3 rounded-karta border border-chiziq bg-oq px-4 py-3 transition-all duration-150 hover:-translate-y-0.5 hover:border-chinni/40"
+                className="flex items-center justify-between gap-3 rounded-karta border border-chiziq bg-yuza px-4 py-3 transition-all duration-150 hover:-translate-y-0.5 hover:border-chinni/40"
               >
                 <span className="line-clamp-1 text-sm">{transliterate(p.label, script)}</span>
                 <span className="raqam shrink-0 text-xs text-tosh">

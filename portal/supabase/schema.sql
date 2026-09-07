@@ -81,6 +81,36 @@ create table if not exists import_history (
 );
 
 -- ---------------------------------------------------------------------------
+-- Keyinroq qo'shilgan ustunlar (idempotent — mavjud bazada ham ishlaydi)
+-- ---------------------------------------------------------------------------
+-- Admin noto'g'ri yozuvni saytdan yashira oladi; import uni qayta ochmaydi,
+-- chunki yashirish import_batch'ga bog'liq emas (yangi batch = yangi id).
+alter table vacancies add column if not exists is_hidden boolean not null default false;
+-- Barqaror id: bir xil vakansiya keyingi oy ham bir xil id bilan qoladi —
+-- saqlanganlar, ulashilgan havolalar va Telegram xabarlari buzilmaydi.
+-- fingerprint = md5(stir|tuman|bo'lim|lavozim|stavka|maosh|izoh|ta'lim|kvota),
+-- sana KIRMAYDI (u oydan oyga o'zgaradi). Importda shu bo'yicha upsert.
+alter table vacancies add column if not exists fingerprint text;
+create unique index if not exists idx_vac_fingerprint on vacancies (fingerprint);
+-- Telegram obunachilari: bitta chat — bitta obuna; faol/nofaol; oxirgi xabar.
+alter table subscriptions add column if not exists username   text;
+alter table subscriptions add column if not exists is_active  boolean not null default true;
+alter table subscriptions add column if not exists notified_at timestamptz;
+create unique index if not exists idx_sub_chat on subscriptions (tg_chat_id);
+
+-- Admin paneldagi ikki bosqichli import: fayl tozalanib shu yerga vaqtincha
+-- yoziladi, admin hisobotni ko'rib tasdiqlagach bazaga o'tkaziladi.
+-- (Vercel'da /tmp ishonchsiz — shuning uchun jadval.)
+create table if not exists import_staging (
+  token      text primary key,
+  batch      text not null,
+  payload    jsonb not null,               -- { companies: [...], vacancies: [...] }
+  report     jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table import_staging enable row level security;
+
+-- ---------------------------------------------------------------------------
 -- Indekslar
 -- ---------------------------------------------------------------------------
 create index if not exists idx_vac_pos_trgm   on vacancies using gin (position_search gin_trgm_ops);
@@ -89,6 +119,7 @@ create index if not exists idx_vac_stir       on vacancies (stir);
 create index if not exists idx_vac_salary     on vacancies (salary);
 -- Importda eski batchni o'chirish uchun (PLAN §7 — to'liq almashtirish)
 create index if not exists idx_vac_batch      on vacancies (import_batch);
+create index if not exists idx_vac_hidden     on vacancies (is_hidden) where is_hidden;
 -- Standart saralash: "eng yangi"
 create index if not exists idx_vac_posted     on vacancies (posted_date desc);
 -- Korxona nomi bo'yicha qidiruv

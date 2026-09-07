@@ -5,6 +5,7 @@
  * unit-test bilan qotirib qo'yish mumkin (import-transform.test.ts).
  */
 
+import { createHash } from 'node:crypto';
 import { cleanText, hasCyrillic, normalize } from './normalize';
 import type { CompanyRow, VacancyRow } from './database.types';
 
@@ -68,8 +69,26 @@ export interface ImportReport {
 
 export interface TransformResult {
   companies: CompanyRow[];
-  vacancies: Omit<VacancyRow, 'id' | 'views'>[];
+  vacancies: Omit<VacancyRow, 'id' | 'views' | 'is_hidden'>[];
   report: ImportReport;
+}
+
+/**
+ * Vakansiyaning barqaror identifikatori. Sana KIRMAYDI — bir xil vakansiya
+ * keyingi oy yangi sana bilan kelsa ham o'sha id'ni saqlab qoladi (saqlangan
+ * ro'yxat, ulashilgan havola, Telegram xabari buzilmaydi). Bitta fayl ichida
+ * faqat sanasi farq qiladigan qatorlar ham birlashtiriladi.
+ */
+export function fingerprintOf(r: {
+  stir: string; district: string; department: string; position: string;
+  stavka: number | null; salary: number | null; salary_note: string | null;
+  education: string; quota: string;
+}): string {
+  const key = [
+    r.stir, r.district, r.department, r.position,
+    r.stavka ?? '', r.salary ?? '', r.salary_note ?? '', r.education, r.quota,
+  ].join('\u001f');
+  return createHash('md5').update(key).digest('hex');
 }
 
 // ---------------------------------------------------------------------------
@@ -297,22 +316,28 @@ export function transformRows(
   }
 
   // --- PLAN §2.2: bir xil qatorlarni birlashtirish -------------------------
+  // Kalit — fingerprint (sanasiz). Sanasi farq qilgan takrorlar ham bitta
+  // yozuvga yig'iladi; eng so'nggi sana saqlanadi. Shu kalit bazada ham
+  // unikal: keyingi oy bir xil vakansiya o'z id'sini saqlab qoladi.
   const merged = new Map<string, { row: CleanRow; count: number }>();
   for (const r of clean) {
-    const key = [
-      r.stir, r.district, r.department, r.position, r.posted_date,
-      r.stavka, r.salary, r.salary_note, r.education, r.quota,
-    ].join('');
-    const hit = merged.get(key);
-    if (hit) hit.count++;
-    else merged.set(key, { row: r, count: 1 });
+    const fp = fingerprintOf(r);
+    const hit = merged.get(fp);
+    if (hit) {
+      hit.count++;
+      if (r.posted_date && (!hit.row.posted_date || r.posted_date > hit.row.posted_date)) {
+        hit.row = { ...hit.row, posted_date: r.posted_date };
+      }
+    } else {
+      merged.set(fp, { row: r, count: 1 });
+    }
   }
 
-  const vacancies: Omit<VacancyRow, 'id' | 'views'>[] = [];
+  const vacancies: Omit<VacancyRow, 'id' | 'views' | 'is_hidden'>[] = [];
   let positionsCyrillic = 0;
   let positionsLatin = 0;
 
-  for (const { row, count } of merged.values()) {
+  for (const [fingerprint, { row, count }] of merged) {
     if (hasCyrillic(row.position)) positionsCyrillic++;
     else positionsLatin++;
 
@@ -330,6 +355,7 @@ export function transformRows(
       quota: row.quota || null,
       positions_count: count,
       import_batch: importBatch,
+      fingerprint,
     });
   }
 

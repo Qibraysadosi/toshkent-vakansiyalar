@@ -7,7 +7,7 @@ import type { Script } from '@/lib/transliterate';
 export function EmptyState({ script, hasFilters }: { script: Script; hasFilters: boolean }) {
   const cyr = script === 'cyr';
   return (
-    <div className="rounded-karta border border-dashed border-chiziq bg-oq/60 px-6 py-14 text-center">
+    <div className="rounded-karta border border-dashed border-chiziq bg-yuza/60 px-6 py-14 text-center">
       <p className="font-display text-lg font-600">
         {cyr ? 'Ҳеч нарса топилмади' : 'Hech narsa topilmadi'}
       </p>

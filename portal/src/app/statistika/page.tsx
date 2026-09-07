@@ -79,7 +79,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-karta border border-chiziq bg-oq p-6">
+    <section className="rounded-karta border border-chiziq bg-yuza p-6">
       <h2 className="font-display text-base font-600">{title}</h2>
       {lead && <p className="mt-1 text-xs text-tosh">{lead}</p>}
       <div className="mt-5">{children}</div>
@@ -134,7 +134,7 @@ export default async function StatsPage() {
           { k: t.withSalary, v: formatNumber(s.totals.withSalary) },
         ].map((c) => (
           <div key={c.k}>
-            <dd className="font-display text-lg font-600 text-siyoh">{c.v}</dd>
+            <dd className="font-display text-lg font-600 text-matn">{c.v}</dd>
             <dt className="mt-0.5 text-xs text-tosh">{c.k}</dt>
           </div>
         ))}

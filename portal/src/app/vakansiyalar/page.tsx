@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { getDistrictCounts, logSearch, searchVacancies } from '@/lib/queries';
+import { getDistrictCounts, getLatestPostedDate, getQuotaCounts, logSearch, searchVacancies } from '@/lib/queries';
 import { getScript } from '@/lib/script';
 import { normalize } from '@/lib/normalize';
 import { transliterate } from '@/lib/transliterate';
@@ -59,10 +59,13 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
   const params = toURLSearchParams(raw);
   const parsed = parseSearchParams(params);
 
-  const [result, districts] = await Promise.all([
+  const [result, districts, quotas, newSince] = await Promise.all([
     searchVacancies({ ...parsed, perPage: PER_PAGE }),
     getDistrictCounts(),
+    getQuotaCounts(),
+    getLatestPostedDate(),
   ]);
+  const quotaCounts = Object.fromEntries(quotas.map((q) => [q.quota, q.count]));
 
   // PLAN §3.3 — har qidiruv analitikaga yoziladi
   if (parsed.q) {
@@ -91,7 +94,7 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
 
       <div className="grid gap-10 lg:grid-cols-[240px_1fr]">
         <Suspense fallback={null}>
-          <FilterPanel script={script} districtCounts={districtCounts} />
+          <FilterPanel script={script} districtCounts={districtCounts} quotaCounts={quotaCounts} />
         </Suspense>
 
         <div className="min-w-0">
@@ -101,7 +104,7 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
 
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-tosh">
-              <span className="raqam text-siyoh">{formatNumber(result.total)}</span> {t.found}
+              <span className="raqam text-matn">{formatNumber(result.total)}</span> {t.found}
               {parsed.q && (
                 <>
                   {' '}
@@ -136,7 +139,7 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
           </div>
 
           {result.fuzzy && (
-            <p className="mb-4 rounded-karta border border-quyosh/40 bg-quyosh/10 px-4 py-2.5 text-xs text-[#7a5410]">
+            <p className="mb-4 rounded-karta border border-quyosh/40 bg-quyosh/10 px-4 py-2.5 text-xs text-quyosh-matn">
               {t.fuzzy}
             </p>
           )}
@@ -152,7 +155,7 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
             <ul className="stagger grid gap-3">
               {result.rows.map((v) => (
                 <li key={v.id}>
-                  <VacancyCard v={v} script={script} />
+                  <VacancyCard v={v} script={script} newSince={newSince} />
                 </li>
               ))}
             </ul>

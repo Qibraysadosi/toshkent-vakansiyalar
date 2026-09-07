@@ -241,68 +241,56 @@ Har bosqich = alohida sessiya. Oxirida: tekshiruv o'tdi → deploy → shu fayld
 |---|---|---|
 | 1 | Poydevor | ✅ |
 | 2 | MVP UI | ✅ |
-| 3 | Dizayn-tizim + xarita | ✅ |
+| 3 | Dizayn-tizim + xarita | ✅ (+ tungi rejim, mobil navigatsiya) |
 | 4 | Qidiruv v2 + alifbo | ✅ |
-| 5 | Admin | ✅ |
+| 5 | Admin | ✅ (bo'limlar, ikki bosqichli import, yashirish) |
 | 6 | Boyitish + statistika | ◐ statistika va korxona sahifalari tayyor; boyitish manbasi tasdiqlanmagan |
-| 7 | Telegram + sayqal | ◐ OG/PWA/sitemap/JobPosting tayyor; bot yozilmagan |
+| 7 | Telegram + sayqal | ◐ bot, webhook, bildirishnoma kodi tayyor — token kerak; OG/PWA/sitemap tayyor |
 
 Hammasi lokalda ishlaydi: `npm run db:up && npm run db:schema && npm run import -- data/fayl.xlsx && npm run dev`.
 
-### 1. Poydevor — ✅
-
-`portal/`: Next.js 15 (App Router, TS, Tailwind 4), `supabase/schema.sql`,
-`src/lib/normalize.ts`, `src/lib/import-transform.ts`, `scripts/import.ts`.
-
-**Tekshiruv** (2026-07 fayli, 15 174 qator):
+### Tekshiruv natijalari (2026-07 fayli, 15 174 qator)
 
 | Mezon | Kutilgan | Chiqdi |
 | --- | --- | --- |
-| Birlashgan qatorlar | ~12 ming | **12 163** (3 011 takror; `sum(positions_count)` = 15 174) |
+| Birlashgan qatorlar | ~12 ming | **12 045** (3 129 takror; `sum(positions_count)` = 15 174) |
 | `"qorovul"` SQL'da | 60+ | **62 ta ish o'rni**. Normalize'siz — 6 ta |
 | Korxonalar / tumanlar | — / 12 | 1 035 / 12 |
-| Import xatolari | 0 | 0 |
+| Qayta import | id saqlanadi | 0 ta o'chdi, id oralig'i o'zgarmadi |
+| Ekranlar | 360–1440, yorug'/tungi | gorizontal scroll yo'q, konsol xatosi yo'q |
 
-Sxema haqiqiy PostgreSQL 16 + `pg_trgm` da sinaldi: ikki marta qo'llanganda
-xato bermaydi, GIN trgm indeksi ILIKE so'rovida ishlatiladi, `similarity()`
-fuzzy fallback "qarovul" → "Қоровул" ni topadi. Oylik almashtirish sinovdan
-o'tdi: yangi batch qo'shildi → eski 12 163 qator o'chirildi → korxonalar
-(1 035) saqlanib qoldi.
+### PLAN'dan tashqari qo'shilganlar
 
-### 2–5. MVP UI, dizayn-tizim, qidiruv v2, admin — ✅
+- **Barqaror id'lar** — `fingerprint` bo'yicha upsert (sana kirmaydi). Saqlangan
+  ro'yxat, ulashilgan havolalar, Telegram xabarlari va Google indeksi oydan oyga
+  buzilmaydi. Yangi faylda yo'q vakansiyalar tegilgan id'larga qarab o'chadi.
+- **Tungi rejim** (tizim / yorug' / tungi, cookie, miltillamaydi) va semantik
+  rang tokenlari; grafik ranglari ikkala mavzu uchun validatordan o'tgan.
+- **Mobil**: pastki navigatsiya, safe-area, `clamp()` sarlavha, filtr sheet.
+- **Saqlangan vakansiyalar** va **yaqinda ko'rilganlar** — `localStorage`,
+  login yo'q. `/saqlangan` sahifasi.
+- "Yangi" nishoni (bazadagi eng so'nggi sanadan 2 kun ichida), kvota toifalari
+  bo'yicha filtr (9 toifa), havolani nusxalash, `/` tugmasi qidiruvga.
+- 404 / xato / yuklanish sahifalari (skeleton).
+- Admin: bo'limlar, import oldindan ko'rish → tasdiqlash (`import_staging`),
+  vakansiyani yashirish/ochish, natijasiz so'rovlardan sinonim taklifi,
+  Telegram bo'limi (bot holati, webhook, obunachilar, bildirishnoma).
+- Telegram bot (grammY, webhook) + `npm run notify` + `npm run telegram:setup`.
+- `/api/v1/vacancies?ids=` — saqlanganlar uchun.
 
-- `/`, `/vakansiyalar`, `/vakansiya/[id]`, `/korxona/[stir]`, `/tuman/[slug]`
-  (12 ta SSG), `/statistika`, `/admin`.
-- Filtrlar URL query'da (`?q=&tuman=&talim=&stavka=&maosh=&maoshli=&kvota=&saralash=&sahifa=`)
-  — natijani ulashsa bo'ladi. Desktop'da chap ustun, mobilda pastdan sheet.
-- Autocomplete (250 ms debounce, top-6 + ish o'rni soni), sinonimlar,
-  `search_logs` va bosh sahifadagi "Ko'p qidirilayotganlar" chiplari.
-- Lotin/Кирилл tugmasi butun saytni o'giradi (cookie orqali, server tomonda —
-  sahifa "sakramaydi"). Test bu bilan qidiruv buzilmasligini qotirgan:
-  `normalize(transliterate(x,'lat')) === normalize(x)`.
-- Xarita — 12 ta poligon, markazga qarab kichraytirilgan ("koshin" effekti),
-  jonli sonlar, hover'da yonadi, bosilganda tuman sahifasi. Mobilda chip-grid.
-- Admin: parol (HMAC cookie, `timingSafeEqual`), .xlsx yuklash, import tarixi,
-  sifat hisoboti, sinonim boshqaruvi, qidiruv loglari (0 natijalar qizil).
+### Qolgan ish (kalit kerak)
 
-### 6–7. Qolgan ish
+- **Boyitish manbasi**: `npm run enrich:probe` ni O'zbekistondan ishga tushiring.
+- **Telegram**: @BotFather'dan token → `TG_BOT_TOKEN`, `TG_WEBHOOK_SECRET` →
+  deploydan keyin `npm run telegram:setup`.
+- Deploy (Supabase + Vercel), domen, Lighthouse o'lchovi (sandbox'da o'lchanmadi).
 
-- **Boyitish manbasi** tasdiqlanmagan: `stat.uz` va `data.egov.uz` bu muhitdan
-  bloklangan. `npm run enrich:probe` skripti tayyor — O'zbekistondan ishga
-  tushiring. Manba topilmasa sayt PLAN §8 zaxira rejasi bo'yicha ishlayveradi
-  (Excel ma'lumoti + korxona sahifasidagi orginfo.uz havolasi).
-- **Telegram bot** yozilmagan — `TG_BOT_TOKEN` kerak.
-- Lighthouse o'lchovi va domen ulash — deploydan keyin.
+### PLAN'dan chetlanishlar
 
-### PLAN'dan chetlanishlar (3 ta)
-
-1. **Maoshga pastki chegara.** `< 10 000 so'm` ham `salary_note='Aniqlashtirilmoqda'`.
-   Sabab: bazada 61 qatorda maosh "9 so'm", "1 so'm", "600 so'm" deb yozilgan;
-   eng kichik stavkada ham minimal ish haqi ~11 550 so'm.
-   O'zgartirish: `MIN_PLAUSIBLE_SALARY` (`src/lib/import-transform.ts`).
-2. **Baza qatlami `pg`, `supabase-js` emas.** Bitta `DATABASE_URL` bilan lokal
-   Postgres ham, Supabase ham ishlaydi; `similarity()` va autocomplete
-   guruhlashi PostgREST orqali imkonsiz. RLS siyosatlari `schema.sql` da qoldi.
-3. **shadcn/ui ishlatilmadi.** Kerak bo'lgan komponentlar (karta, chip, sheet,
-   autocomplete) 5-bo'lim tokenlariga to'g'ridan-to'g'ri yozildi — qo'shimcha
-   bog'liqlik va uslub qatlami olib tashlandi.
+1. **Maoshga pastki chegara** (`< 10 000 so'm` → "Aniqlashtirilmoqda") — 61 ta
+   texnik xato qator. `MIN_PLAUSIBLE_SALARY`.
+2. **Baza qatlami `pg`, `supabase-js` emas** — bitta `DATABASE_URL`, to'liq SQL.
+3. **shadcn/ui ishlatilmadi** — komponentlar tokenlarga to'g'ridan-to'g'ri yozildi.
+4. **Takrorlarni birlashtirish sanasiz** — PLAN §2.2 "to'liq bir xil qator"
+   degan; endi faqat sanasi farq qilganlar ham birlashadi (12 163 → 12 045).
+   Sabab: barqaror id. Ish o'rni yig'indisi o'zgarmaydi (15 174).

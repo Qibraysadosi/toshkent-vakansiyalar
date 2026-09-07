@@ -13,18 +13,18 @@ Hammasi `portal/` ichidan ishga tushiriladi.
 | Buyruq | Vazifasi |
 | --- | --- |
 | `npm run db:up` | Lokal Postgres (Docker) ko'taradi |
-| `npm run db:schema` | `supabase/schema.sql` ni qo'llaydi (idempotent) |
+| `npm run db:schema` | `supabase/schema.sql` ni qo'llaydi (idempotent, migratsiyalar ham shu yerda) |
 | `npm run db:reset` | Jadvallarni o'chirib, sxemani qaytadan qo'llaydi |
-| `npm run import -- data/fayl.xlsx` | Excel'ni bazaga yuklash |
+| `npm run import -- data/fayl.xlsx` | Excel'ni bazaga yuklash (`--batch 2026-08`) |
 | `npm run import:dry -- data/fayl.xlsx` | Faqat hisobot, bazaga yozmaydi |
 | `npm run dev` | Dev server — http://localhost:3000 |
 | `npm run build` | Production build (deploydan oldin tekshiring) |
-| `npm test` | Vitest — normalize, transliterate, import qoidalari |
+| `npm test` | Vitest — normalize, transliterate, import qoidalari (50 test) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run enrich:probe` | 6-bosqich: boyitish manbalari javob beradimi |
 | `npm run enrich -- --limit 50` | Korxonalarni boyitish (1 req/sek) |
-
-Import parametrlari: `--dry-run` (`-n`), `--batch <nom>`, `--out <fayl>`.
+| `npm run telegram:setup` | Bot webhook'ini saytga bog'laydi (deploydan keyin, bir marta) |
+| `npm run notify` | Obunachilarga oxirgi batchdagi mos vakansiyalarni yuboradi |
 
 ## Muhit o'zgaruvchilari
 
@@ -33,113 +33,135 @@ Import parametrlari: `--dry-run` (`-n`), `--batch <nom>`, `--out <fayl>`.
 | O'zgaruvchi | Izoh |
 | --- | --- |
 | `DATABASE_URL` | Postgres ulanish satri. Lokal yoki Supabase — bir xil ishlaydi |
-| `NEXT_PUBLIC_SITE_URL` | Kanonik manzil (sitemap, robots, OG rasmlar) |
+| `NEXT_PUBLIC_SITE_URL` | Kanonik manzil (sitemap, robots, OG rasmlar, bot havolalari) |
 | `ADMIN_PASSWORD` | `/admin` paroli. **Bo'sh bo'lsa admin panel butunlay yopiq** |
-| `TG_BOT_TOKEN` | Telegram bot (7-bosqich, hali yozilmagan) |
+| `TG_BOT_TOKEN` | Telegram bot tokeni (@BotFather). Bo'sh bo'lsa bot va bildirishnoma o'chiq |
+| `TG_WEBHOOK_SECRET` | Webhook'ni begona POST'lardan himoya qiladi — istalgan uzun tasodifiy satr |
 
 ## Baza qatlami — nega supabase-js emas
 
-Sayt Postgres'ga **to'g'ridan-to'g'ri** `pg` orqali ulanadi (`src/lib/db.ts`),
-`@supabase/supabase-js` ishlatilmaydi. Sabab:
+Sayt Postgres'ga **to'g'ridan-to'g'ri** `pg` orqali ulanadi (`src/lib/db.ts`).
+Sabab: qidiruv `similarity()`, trigram reytingi va autocomplete guruhlashiga
+tayanadi — bularni PostgREST orqali qilib bo'lmaydi. Bitta `DATABASE_URL`
+bilan lokal Postgres ham, Supabase ham ishlaydi. `schema.sql` dagi RLS
+siyosatlari o'z kuchida (Supabase'ning ochiq PostgREST endpointi uchun).
 
-- Qidiruv `similarity()`, trigram reytingi va autocomplete guruhlashiga
-  tayanadi — bularni PostgREST orqali qilib bo'lmaydi.
-- Bitta `DATABASE_URL` bilan lokal Postgres ham, Supabase ham ishlaydi.
+Vercel'da **Transaction pooler** (port 6543) manzilini ishlating.
 
-`schema.sql` dagi RLS siyosatlari o'z kuchida qoladi: ular Supabase'ning ochiq
-PostgREST endpointini himoya qiladi (kelajakda mobil ilova undan foydalanishi
-mumkin), sayt esa server tomondan SQL yozadi.
+`db.ts` ikkita `pg` sozlamasini o'zgartiradi: `int8` raqamga o'giriladi,
+`date` xom `"YYYY-MM-DD"` satri bo'lib qoladi (vaqt zonasi siljitmasin).
 
-Vercel'da **Transaction pooler** (port 6543) manzilini ishlating — serverless
-funksiyalar uchun shu mo'ljallangan.
+**`server-only` faqat** `script.ts`, `theme.ts`, `admin-auth.ts` da
+(ular `next/headers` ishlatadi). `queries.ts` va boshqa modullar `tsx`
+skriptlaridan ham chaqiriladi — ularga `server-only` qo'shilsa skriptlar
+yiqiladi.
 
-`src/lib/db.ts` ikkita `pg` sozlamasini o'zgartiradi: `int8` raqamga
-o'giriladi (aks holda `id` string bo'lib keladi), `date` esa xom
-`"YYYY-MM-DD"` satri bo'lib qoladi (aks holda vaqt zonasi sanani siljitadi).
+## Import — barqaror id'lar
+
+Har vakansiyaning `fingerprint` i bor:
+`md5(stir | tuman | bo'lim | lavozim | stavka | maosh | izoh | ta'lim | kvota)`.
+**Sana kirmaydi.** Import shu bo'yicha upsert qiladi:
+
+- Keyingi oy ham kelgan vakansiya **o'z `id`sini, `views` va `is_hidden`
+  holatini saqlab qoladi** — saqlanganlar, ulashilgan havolalar, Telegram
+  xabarlari va Google indeksi buzilmaydi. Faqat sana, o'rin soni va batch
+  yangilanadi.
+- Bitta fayl ichida faqat sanasi farq qiladigan qatorlar ham birlashadi
+  (eng so'nggi sana qoladi).
+- Yangi faylda yo'q vakansiyalar o'chadi — **batch nomiga emas, aynan shu
+  importda tegilgan id'larga qarab** (`delete ... where not (id = any(...))`).
+  Shuning uchun bir xil batch nomi bilan qayta yuklash xavfsiz.
+
+Skript va admin panel bitta kodni ishlatadi: `src/lib/import-run.ts`
+(`parseWorkbook` → `transformRows` → `writeImport`). Admin panelda ikki
+bosqich: fayl `import_staging` jadvaliga tozalangan holda yoziladi, hisobot
+ko'rsatiladi, admin tasdiqlagach bazaga o'tadi (Vercel'da `/tmp` ishonchsiz —
+shuning uchun jadval).
 
 ## Konvensiyalar — buzilmasin
 
-- **`normalize()` — bitta manba fayl:** `src/lib/normalize.ts`. Sayt, import va
-  Telegram bot AYNAN shu funksiyani ishlatadi. Uni o'zgartirsangiz
-  `position_search` / `name_search` ustunlari eskirib qoladi — **importni
-  qaytadan yuritish shart**.
-- **`transliterate()` — faqat ko'rinadigan matn uchun** (`src/lib/transliterate.ts`).
-  U apostrofni saqlaydi va katta harfni qaytaradi; `normalize()` esa qidiruv
-  kalitini beradi. Test bu ikkovining mosligini qotirib qo'ygan:
+- **`normalize()` — bitta manba fayl:** `src/lib/normalize.ts`. Sayt, import,
+  bot AYNAN shu funksiyani ishlatadi. O'zgartirsangiz — importni qayta yuriting.
+- **`transliterate()` — faqat ko'rinadigan matn uchun.** Test qotirib qo'ygan:
   `normalize(transliterate(x, 'lat')) === normalize(x)`.
-- **STIR — har doim `string`**, hech qachon `number`. `parseStir()` uni 9 xonaga
-  to'ldiradi (`padStart(9,'0')`).
-- **Excel ustun nomlari kirillcha** — `src/lib/import-transform.ts` dagi
-  `EXCEL_HEADERS` dan nusxa oling, qo'lda yozmang.
-- **Original yozuv saqlanadi:** `position` ustuni Excel'dagidek (kirill yoki
-  lotin) qoladi; qidiruv faqat `position_search` bo'yicha boradi; ekranga
-  chiqishda `transliterate()` qo'llanadi.
-- **Tuman:** filtrlash har doim `vacancies.district` bo'yicha.
-  `companies.district` — shunchaki eng ko'p uchragan tuman (4 ta korxona bir
-  nechta tumanda ishlaydi, bittasi hamma 12 tumanda).
-- **SQL faqat `src/lib/queries.ts` da**, qiymatlar faqat `$1, $2` parametrlari
-  orqali.
-- Interfeys matni o'zbekcha, "siz"da. Har komponentda `TEXT = { lat, cyr }`
-  obyekti — tarjima shu yerda turadi.
+- **STIR — har doim `string`**; `parseStir()` 9 xonaga to'ldiradi.
+- **Excel ustun nomlari kirillcha** — `EXCEL_HEADERS` dan nusxa oling.
+- **Tuman filtri** har doim `vacancies.district` bo'yicha.
+- **SQL faqat `src/lib/queries.ts` da**, qiymatlar faqat `$1, $2` orqali.
+  Ommaviy so'rovlar `not is_hidden` bilan; admin `includeHidden: true` beradi.
+- Interfeys matni o'zbekcha, "siz"da. Har komponentda `TEXT = { lat, cyr }`.
 
-## Dizayn-tizim (PLAN §5)
+## Dizayn-tizim (PLAN §5) + mavzu
 
-Ranglar va shriftlar `src/app/globals.css` dagi `@theme` blokida:
-`siyoh` `chinni` `chinni-toq` `quyosh` `qogoz` `tosh` `chiziq`.
+Ranglar ikki qatlamda (`globals.css`):
 
-- **`quyosh` — bitta ekranda faqat bitta joyda** ("N ta o'rin" nishoni).
-- Yirik yakka raqamlar — `font-display` (proporsional). `.raqam` (IBM Plex
-  Mono, tabular) faqat ustma-ust turadigan raqamlar uchun: maosh, jadval,
-  o'q yozuvlari.
-- Animatsiya faqat uch joyda: hisoblagich, ro'yxat stagger-fade, xarita hover.
-  `prefers-reduced-motion` hurmat qilinadi.
-- Xarita (`src/lib/districts.ts` + `DistrictMap.tsx`) — poligonlar markazga
-  qarab 3.5% kichraytiriladi, shunda tumanlar "koshin" bo'lib ajralib turadi.
+- **Brend konstantalari:** `siyoh` `chinni` `chinni-toq` `quyosh` `qogoz` — mavzuga
+  bog'liq emas (footer `bg-siyoh text-qogoz` har doim shunday).
+- **Semantik tokenlar:** `fon` (sahifa), `yuza` (karta), `matn`, `tosh` (ikkilamchi),
+  `chiziq` (chegara), `quyosh-matn`. Komponentlar FAQAT shularni ishlatadi —
+  tungi rejimda avtomatik almashadi.
+
+Mavzu: cookie `mavzu` = `light | dark`, yo'q bo'lsa tizim (`prefers-color-scheme`).
+Server `<html data-theme>` ni yozadi — sahifa miltillamaydi. `ThemeToggle`
+darhol atributni o'zgartiradi, keyin `router.refresh()`.
+
+- `quyosh` bitta ekranda bitta joyda ("N ta o'rin"). "Yangi" nishoni — `chinni`.
+- Yirik yakka raqam — `font-display`; `.raqam` (mono, tabular) — ustma-ust raqamlar.
+- Animatsiya: hisoblagich, ro'yxat stagger-fade, xarita hover. `prefers-reduced-motion`.
+- Xarita poligonlari markazga 3.5% kichraytiriladi ("koshin" effekti).
+- Telefonda pastki navigatsiya (`MobileNav`, `md` dan kichikda), `env(safe-area-inset-bottom)`.
+- Klaviatura: `/` qidiruvni fokuslaydi (`Shortcuts`).
 
 ### Grafiklar
 
-`/statistika` — Recharts. Ranglar validator bilan tekshirilgan:
+Ranglar `--chart-*` CSS o'zgaruvchilaridan o'qiladi (`useChartTheme`) — ikkala
+mavzu uchun validator bilan tekshirilgan: yorug' `#1391A5` / ramp
+`#094F5B→#1391A5→#6FBFCE`; tungi `#1FA3B8` / `#1B8799→#4CC4D6→#9AE0EB`.
+Bitta qatorli grafik → bitta rang; ta'lim (tartiblangan) → ordinal ramp.
 
-- Bitta qatorli grafiklar → **bitta rang** (`#1391A5`). Nominal toifalarga
-  qiymat-rampasi berilmaydi (bu uzunlikni ikki marta kodlaydi).
-- Ta'lim darajasi tartiblangan → ordinal ramp `#094F5B → #1391A5 → #6FBFCE`.
-- Har grafik ostida `<details>` ichida jadval — rangga tayanmaslik uchun.
+## Foydalanuvchi holati (login yo'q)
+
+`src/lib/saved.ts` — `localStorage`: `saqlangan` (id'lar, `/saqlangan` sahifasi
+ularni `/api/v1/vacancies?ids=` orqali oladi) va `korilgan` (bosh sahifadagi
+"Yaqinda ko'rilganlar"). Tablar orasida `storage` hodisasi bilan sinxron.
+
+## Admin (`/admin`)
+
+`layout.tsx` — kirish tekshiruvi (HMAC cookie, `timingSafeEqual`), barcha
+bo'limlar shu qobiqda. Bo'limlar: Umumiy · Import (oldindan ko'rish → tasdiqlash)
+· Vakansiyalar (id/matn bo'yicha topish, yashirish/ochish) · Sinonimlar
+(natijasiz so'rovlardan taklif, `?term=` bilan oldindan to'ldiriladi) ·
+Qidiruv loglari · Telegram (bot holati, webhook tekshiruvi, obunachilar,
+bildirishnoma yuborish).
+
+## Telegram bot (PLAN §9)
+
+`src/lib/telegram.ts` (grammY) + `/api/telegram` webhook. Holat DB'da:
+`subscriptions.query_norm` bo'sh → kasb kutilmoqda. `/start` → kasb → tuman
+(inline tugmalar) → obuna. Oddiy matn → qidiruv (`botSearch`, sayt bilan bitta
+normalize/sinonim). `/stop` → `is_active=false`. Botni bloklagan (403) obunadan
+chiqariladi. Bildirishnoma: `src/lib/notify.ts` — admin tugmasi va
+`npm run notify` bir xil funksiya. Lokalda webhook ishlamaydi (Telegram lokal
+manzilga yeta olmaydi) — deploydan keyin `npm run telegram:setup`.
 
 ## Ma'lumot haqida bilib qo'yish kerak
 
-2026-07 fayli bo'yicha o'lchangan:
+2026-07 fayli bo'yicha:
 
-- 15 174 Excel qatori → **12 163** vakansiya yozuvi (3 011 takror
-  birlashtirilgan, `positions_count` ga yig'ilgan; yig'indi yana 15 174).
-- 1 035 korxona, 12 tuman.
-- Lavozimlarning **89%** i kirill yozuvida — shuning uchun `normalize()` shart.
-  "qorovul": oddiy qidiruv 6 ta topadi, `position_search` bo'yicha **62 ta**.
-- Maosh: 8 939 qatorda raqam, 6 166 tasida "shtat jadvali bo'yicha" matni,
-  8 tasida 100 mln dan katta xato qiymat, 61 tasida 10 ming dan kichik
-  (9 so'm, 1 so'm) — oxirgi ikkalasi `salary_note='Aniqlashtirilmoqda'`.
-- Telefon ustunida bitta korxonaga bir nechta raqam vergul bilan kelishi mumkin.
+- 15 174 Excel qatori → **12 045** vakansiya yozuvi (3 129 takror birlashtirilgan,
+  shu jumladan faqat sanasi farq qilganlar; `sum(positions_count)` = 15 174).
+- 1 035 korxona, 12 tuman, 9 kvota toifasi (`src/lib/quotas.ts`).
+- Lavozimlarning ~89% i kirill yozuvida. "qorovul": oddiy qidiruv 6 ta,
+  `position_search` bo'yicha 62 ta ish o'rni.
+- Maosh: 8 939 qatorda raqam; 6 166 "shtat jadvali"; 8 ta >100 mln va 61 ta
+  <10 ming rad etilgan (`Aniqlashtirilmoqda`).
+- Telefon ustunida bir nechta raqam vergul bilan kelishi mumkin.
 
 ## Ma'lum muammo
 
-`xlsx` (SheetJS) npm registry'dagi oxirgi versiyasi **0.18.5** va unda ma'lum
-zaiflik bor (CVE-2023-30533, prototype pollution). Yangi 0.20.x faqat SheetJS
-CDN'ida.
+`xlsx@0.18.5` (CVE-2023-30533). Yumshatish: fayl `{ header: 1 }` massiv
+rejimida o'qiladi (`parseWorkbook`), admin yuklash parol bilan himoyalangan.
+`exceljs` ga o'tish rejada.
 
-Yumshatish: fayl **`{ header: 1 }`** (massiv rejimi) bilan o'qiladi —
-sarlavhalardan obyekt kaliti yasalmaydi, ya'ni zaiflik yo'li ochilmaydi.
-Admin paneldagi yuklash oynasi ham shu rejimda ishlaydi va parol bilan
-himoyalangan. Shunga qaramay, `exceljs` ga o'tish rejalashtirilgan.
-
-## Bosqichlar
-
-PLAN.md §11 va oxiridagi "Bosqichlar holati" jadvali.
-
-1. ✅ Poydevor — sxema, `normalize()`, import
-2. ✅ MVP UI — bosh sahifa, ro'yxat + filtrlar, vakansiya sahifasi
-3. ✅ Dizayn-tizim + tumanlar xaritasi
-4. ✅ Qidiruv v2 — autocomplete, sinonimlar, alifbo tugmasi
-5. ✅ Admin — import UI, dashboard, sinonimlar, loglar
-6. ◐ `/statistika` va korxona sahifalari tayyor; **boyitish** manbasi hali
-   tasdiqlanmagan (`npm run enrich:probe` ni O'zbekistondan ishga tushiring)
-7. ◐ OG rasmlar, PWA, sitemap, JobPosting, rate limit, `/api/v1` tayyor;
-   **Telegram bot** yozilmagan (token kerak), domen va Lighthouse o'lchovi qolgan
+Lighthouse bu muhitda o'lchanmadi (sandbox proksi Chrome'ni to'sadi) —
+lokalda `npx lighthouse http://localhost:3000` bilan tekshiring.

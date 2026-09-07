@@ -2,8 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { Unbounded, Golos_Text, IBM_Plex_Mono } from 'next/font/google';
 import Link from 'next/link';
 import { getScript } from '@/lib/script';
+import { getTheme } from '@/lib/theme';
 import { siteUrl } from '@/lib/env';
 import { ScriptToggle } from '@/components/ScriptToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { MobileNav } from '@/components/MobileNav';
+import { Shortcuts } from '@/components/Shortcuts';
 import './globals.css';
 
 /* PLAN §5.2 — uchala shrift ham to'liq kirill + lotin qo'llab-quvvatlaydi. */
@@ -37,56 +41,64 @@ export const metadata: Metadata = {
   description:
     "Toshkentdagi 15 000 dan ortiq rasmiy bo'sh ish o'rni. Tumanlar bo'yicha qidiruv, " +
     "maosh ma'lumoti, to'g'ridan-to'g'ri korxona telefoni.",
-  openGraph: {
-    type: 'website',
-    locale: 'uz_UZ',
-    siteName: 'Toshkent vakansiyalari',
-  },
+  applicationName: 'Toshkent.ish',
+  openGraph: { type: 'website', locale: 'uz_UZ', siteName: 'Toshkent vakansiyalari' },
   robots: { index: true, follow: true },
   manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Toshkent.ish' },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#10233A',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F7F4EE' },
+    { media: '(prefers-color-scheme: dark)', color: '#0E1A2B' },
+  ],
 };
 
 const NAV = [
   { href: '/vakansiyalar', lat: 'Vakansiyalar', cyr: 'Вакансиялар' },
   { href: '/statistika', lat: 'Statistika', cyr: 'Статистика' },
+  { href: '/saqlangan', lat: 'Saqlangan', cyr: 'Сақланган' },
 ] as const;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const script = await getScript();
+  const [script, theme] = await Promise.all([getScript(), getTheme()]);
+  const cyr = script === 'cyr';
 
   return (
-    <html lang={script === 'cyr' ? 'uz-Cyrl' : 'uz'} className={`${unbounded.variable} ${golos.variable} ${plexMono.variable}`}>
-      <body className="flex min-h-screen flex-col">
+    <html
+      lang={cyr ? 'uz-Cyrl' : 'uz'}
+      data-theme={theme === 'system' ? undefined : theme}
+      className={`${unbounded.variable} ${golos.variable} ${plexMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="mobil-nav-joy flex min-h-screen flex-col">
         <a
           href="#asosiy"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-siyoh focus:px-4 focus:py-2 focus:text-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-siyoh focus:px-4 focus:py-2 focus:text-qogoz"
         >
-          {script === 'cyr' ? 'Асосий қисмга ўтиш' : "Asosiy qismga o'tish"}
+          {cyr ? 'Асосий қисмга ўтиш' : "Asosiy qismga o'tish"}
         </a>
 
-        <header className="bosmada-yashir sticky top-0 z-40 border-b border-chiziq bg-qogoz/85 backdrop-blur">
-          <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
-            <Link href="/" className="font-display text-base font-700 tracking-tight text-siyoh">
+        <header className="bosmada-yashir sticky top-0 z-40 border-b border-chiziq bg-fon/85 backdrop-blur">
+          <div className="mx-auto flex h-14 max-w-6xl items-center gap-5 px-4 sm:h-16 sm:px-6">
+            <Link href="/" className="font-display text-base font-700 tracking-tight text-matn">
               Toshkent<span className="text-chinni">.ish</span>
             </Link>
 
-            <nav className="hidden gap-5 text-xs sm:flex">
+            <nav className="hidden gap-5 text-xs md:flex">
               {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-tosh transition-colors hover:text-chinni"
-                >
-                  {script === 'cyr' ? item.cyr : item.lat}
+                <Link key={item.href} href={item.href} className="text-tosh transition-colors hover:text-chinni">
+                  {cyr ? item.cyr : item.lat}
                 </Link>
               ))}
             </nav>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <ThemeToggle current={theme} script={script} />
               <ScriptToggle current={script} />
             </div>
           </div>
@@ -101,34 +113,40 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
               <div className="max-w-sm">
                 <div className="font-display text-base font-600">
-                  Toshkent<span className="text-chinni">.ish</span>
+                  Toshkent<span className="text-[#5fcadb]">.ish</span>
                 </div>
                 <p className="mt-3 text-xs leading-relaxed text-qogoz/70">
-                  {script === 'cyr'
+                  {cyr
                     ? 'Расмий ойлик базадан йиғилган бўш иш ўринлари. Маълумот ҳар ой янгиланади.'
                     : "Rasmiy oylik bazadan yig'ilgan bo'sh ish o'rinlari. Ma'lumot har oy yangilanadi."}
                 </p>
               </div>
 
-              <nav className="flex flex-col gap-2 text-xs">
+              <nav className="grid grid-cols-2 gap-x-10 gap-y-2 text-xs sm:grid-cols-1">
                 {NAV.map((item) => (
                   <Link key={item.href} href={item.href} className="text-qogoz/70 hover:text-white">
-                    {script === 'cyr' ? item.cyr : item.lat}
+                    {cyr ? item.cyr : item.lat}
                   </Link>
                 ))}
                 <Link href="/api/v1/vacancies?limit=5" className="text-qogoz/70 hover:text-white">
-                  {script === 'cyr' ? 'Очиқ API' : 'Ochiq API'}
+                  {cyr ? 'Очиқ API' : 'Ochiq API'}
+                </Link>
+                <Link href="/admin" className="text-qogoz/40 hover:text-white">
+                  Admin
                 </Link>
               </nav>
             </div>
 
             <p className="mt-10 border-t border-white/10 pt-6 text-xs text-qogoz/50">
-              {script === 'cyr'
+              {cyr
                 ? 'Маълумот манбаи — расмий ойлик вакансиялар базаси.'
                 : "Ma'lumot manbai — rasmiy oylik vakansiyalar bazasi."}
             </p>
           </div>
         </footer>
+
+        <MobileNav script={script} />
+        <Shortcuts />
       </body>
     </html>
   );

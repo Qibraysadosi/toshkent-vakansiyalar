@@ -34,5 +34,5 @@ export function CountUp({ value, durationMs = 900 }: { value: number; durationMs
 
   // Yakka yirik raqamda tabular-nums kerak emas (u "bo'shashgan" ko'rinadi) —
   // mono faqat ustma-ust turadigan raqamlarda ishlatiladi.
-  return <span className="font-500 text-siyoh">{shown.toLocaleString('ru-RU').replace(/ /g, ' ')}</span>;
+  return <span className="font-500 text-matn">{shown.toLocaleString('ru-RU').replace(/ /g, ' ')}</span>;
 }

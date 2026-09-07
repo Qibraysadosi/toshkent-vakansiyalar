@@ -16,6 +16,9 @@ import {
 } from '@/lib/format';
 import { siteUrl } from '@/lib/env';
 import { VacancyCard } from '@/components/VacancyCard';
+import { SaveButton } from '@/components/SaveButton';
+import { CopyLink } from '@/components/CopyLink';
+import { TrackView } from '@/components/RecentlyViewed';
 
 export const revalidate = 86400; // PLAN §10 — detallar 24 soat
 
@@ -65,7 +68,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const v = await getVacancy(Number(id));
-  if (!v) return { title: 'Topilmadi' };
+  if (!v || v.is_hidden) return { title: 'Topilmadi', robots: { index: false } };
 
   const salary = formatSalary(v.salary === null ? null : Number(v.salary), v.salary_note);
   const title = `${v.position} — ${districtLabel(v.district)}`;
@@ -99,7 +102,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
   if (!Number.isInteger(numericId) || numericId <= 0) notFound();
 
   const v = await getVacancy(numericId);
-  if (!v) notFound();
+  if (!v || v.is_hidden) notFound();
 
   const script = await getScript();
   const t = TEXT[script];
@@ -154,13 +157,15 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPosting) }}
       />
 
+      <TrackView id={v.id} position={v.position} district={v.district} />
+
       <Link href="/vakansiyalar" className="bosmada-yashir text-xs text-tosh hover:text-chinni">
         ← {t.back}
       </Link>
 
       <header className="mt-4">
         {v.positions_count > 1 && (
-          <span className="mb-3 inline-block rounded-full bg-quyosh/15 px-3 py-1 text-xs font-500 text-[#8a6011]">
+          <span className="mb-3 inline-block rounded-full bg-quyosh/15 px-3 py-1 text-xs font-500 text-quyosh-matn">
             {v.positions_count} {script === 'cyr' ? 'та ўрин' : "ta o'rin"}
           </span>
         )}
@@ -183,20 +188,21 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
       </header>
 
       {/* --- Maosh + harakat tugmalari ---------------------------------- */}
-      <section className="mt-7 rounded-karta border border-chiziq bg-oq p-6">
+      <section className="mt-7 rounded-karta border border-chiziq bg-yuza p-6">
         <p className="text-xs text-tosh">{t.salary}</p>
         {salary.muted ? (
           <p className="mt-1 text-base text-tosh">{transliterate(salary.text, script)}</p>
         ) : (
-          <p className="raqam mt-1 text-xl text-siyoh">{salary.text}</p>
+          <p className="raqam mt-1 text-xl text-matn">{salary.text}</p>
         )}
 
-        <div className="bosmada-yashir mt-6 flex flex-wrap gap-2.5">
+        {/* Telefonda: raqam butun kenglikda, qolganlari 2 ustunda; katta ekranda bir qatorda */}
+        <div className="bosmada-yashir mt-6 grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap">
           {phones.map((p) => (
             <a
               key={p}
               href={`tel:+${p.replace(/\D/g, '')}`}
-              className="raqam rounded-karta bg-chinni px-5 py-2.5 text-sm text-white transition-colors hover:bg-chinni-toq"
+              className="raqam col-span-2 rounded-karta bg-chinni px-5 py-2.5 text-center text-sm text-white transition-colors hover:bg-chinni-toq sm:col-span-1"
             >
               {formatPhone(p)}
             </a>
@@ -205,10 +211,14 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
             href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(v.position)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-karta border border-chiziq px-5 py-2.5 text-sm text-tosh transition-colors hover:border-chinni hover:text-chinni"
+            className="rounded-karta border border-chiziq px-4 py-2.5 text-center text-sm text-tosh transition-colors hover:border-chinni hover:text-chinni"
           >
             {t.share}
           </a>
+          <CopyLink url={shareUrl} script={script} />
+          <div className="col-span-2 sm:col-span-1">
+            <SaveButton id={v.id} script={script} size="katta" />
+          </div>
         </div>
         {phones.length === 0 && (
           <p className="mt-4 text-xs text-tosh">
@@ -218,7 +228,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
       </section>
 
       {/* --- To'liq ma'lumot -------------------------------------------- */}
-      <dl className="mt-8 rounded-karta border border-chiziq bg-oq px-6 py-2">
+      <dl className="mt-8 rounded-karta border border-chiziq bg-yuza px-6 py-2">
         <Row label={t.district}>{districtLabel(v.district, script)}</Row>
         {v.department && <Row label={t.department}>{transliterate(v.department, script)}</Row>}
         {v.education && <Row label={t.education}>{educationLabel(v.education, script)}</Row>}

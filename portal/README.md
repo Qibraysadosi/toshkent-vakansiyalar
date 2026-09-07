@@ -38,7 +38,7 @@ Admin panel: `.env.local` da `ADMIN_PASSWORD` ni o'rnating va
 ## Tekshiruv
 
 ```bash
-npm test          # normalize, transliterate va import qoidalari (48 test)
+npm test          # normalize, transliterate va import qoidalari (50 test)
 npm run typecheck
 npm run build
 ```
@@ -79,8 +79,20 @@ portal/
 | `/korxona/[stir]` | Korxona kartasi + barcha vakansiyalari |
 | `/tuman/[slug]` | 12 ta SEO sahifa (statik generatsiya) |
 | `/statistika` | Ochiq analitika (Recharts) |
-| `/admin` | Parol bilan: import, tarix, sinonimlar, qidiruv loglari |
-| `/api/v1/vacancies` | Ochiq JSON API |
+| `/saqlangan` | Saqlangan vakansiyalar (brauzerda, loginsiz) |
+| `/admin` | Parol bilan: import (oldindan ko'rish → tasdiqlash), vakansiyalarni yashirish, sinonimlar, loglar, Telegram |
+| `/api/v1/vacancies` | Ochiq JSON API (`?q=&tuman=&ids=`) |
+| `/api/telegram` | Telegram bot webhook |
+
+## Imkoniyatlar
+
+- Kirill/lotin farqisiz qidiruv, sinonimlar, xato yozilgan so'rov uchun fuzzy fallback
+- Lotin / Кирилл tugmasi — butun sayt o'giriladi
+- Yorug' / tungi rejim (tizimga ergashadi, qo'lda ham tanlanadi)
+- Telefon: pastki navigatsiya, filtrlar pastdan chiqadigan oynada
+- Saqlangan vakansiyalar, yaqinda ko'rilganlar (loginsiz)
+- Barqaror havolalar: oylik importda bir xil vakansiya o'z manzilini saqlab qoladi
+- Telegram bot: kasb + tuman bo'yicha obuna, importdan keyin xabar
 
 ## Deploy
 

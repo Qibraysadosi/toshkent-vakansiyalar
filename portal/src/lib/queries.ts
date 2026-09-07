@@ -1,4 +1,3 @@
-import 'server-only';
 import { query, queryOne } from './db';
 import { normalize } from './normalize';
 
@@ -22,6 +21,7 @@ export interface VacancyListItem {
   views: number;
   stir: string;
   company_name: string;
+  is_hidden: boolean;
 }
 
 export interface VacancyDetail extends VacancyListItem {
@@ -42,7 +42,11 @@ export interface SearchParams {
   salaryMax?: number;
   onlyWithSalary?: boolean;
   onlyQuota?: boolean;
+  /** Aniq kvota toifalari (bazadagi to'liq matn) */
+  quotas?: string[];
   stir?: string;
+  /** Admin: yashirilgan yozuvlarni ham ko'rsatish */
+  includeHidden?: boolean;
   sort?: SortKey;
   page?: number;
   perPage?: number;
@@ -69,7 +73,7 @@ const ORDER_BY: Record<SortKey, string> = {
 const SELECT_LIST = `
   v.id, v.position, v.district, v.department, v.salary, v.salary_note,
   v.education, v.quota, v.stavka, v.posted_date, v.positions_count, v.views,
-  v.stir, c.name as company_name
+  v.stir, c.name as company_name, v.is_hidden
 `;
 
 /** So'rovni sinonimlar bilan kengaytiradi (PLAN §3.2). */
@@ -103,8 +107,10 @@ function buildFilters(p: SearchParams, params: unknown[]): string[] {
   if (p.salaryMin !== undefined) where.push(`v.salary >= ${add(p.salaryMin)}`);
   if (p.salaryMax !== undefined) where.push(`v.salary <= ${add(p.salaryMax)}`);
   if (p.onlyWithSalary) where.push('v.salary is not null');
-  if (p.onlyQuota) where.push('v.quota is not null');
+  if (p.quotas?.length) where.push(`v.quota = any(${add(p.quotas)}::text[])`);
+  else if (p.onlyQuota) where.push('v.quota is not null');
   if (p.stir) where.push(`v.stir = ${add(p.stir)}`);
+  if (!p.includeHidden) where.push('not v.is_hidden');
 
   return where;
 }
@@ -195,7 +201,7 @@ export async function getSimilarVacancies(v: VacancyDetail, limit = 6): Promise<
     `select ${SELECT_LIST}
      from vacancies v
      join companies c on c.stir = v.stir
-     where v.id <> $1
+     where v.id <> $1 and not v.is_hidden
        and (v.position_search % $2 or v.stir = $3)
      order by (v.position_search % $2) desc, similarity(v.position_search, $2) desc, v.id desc
      limit $4`,
@@ -221,7 +227,7 @@ export async function getTotals(): Promise<Totals> {
             count(distinct stir) as companies,
             count(*) filter (where salary is not null) as with_salary,
             avg(salary) as avg_salary
-     from vacancies`,
+     from vacancies where not is_hidden`,
   );
   return {
     vacancies: Number(row?.vacancies ?? 0),
@@ -242,7 +248,7 @@ export interface DistrictCount {
 export async function getDistrictCounts(): Promise<DistrictCount[]> {
   const rows = await query<{ district: string; vacancies: string; positions: string; avg_salary: string | null }>(
     `select district, count(*) as vacancies, sum(positions_count) as positions, avg(salary) as avg_salary
-     from vacancies group by district order by sum(positions_count) desc`,
+     from vacancies where not is_hidden group by district order by sum(positions_count) desc`,
   );
   return rows.map((r) => ({
     district: r.district,
@@ -270,6 +276,7 @@ export async function getTopPositions(limit = 12): Promise<PositionGroup[]> {
             count(*) as vacancies,
             sum(positions_count) as positions
      from vacancies
+     where not is_hidden
      group by position_search
      order by sum(positions_count) desc
      limit $1`,
@@ -297,7 +304,7 @@ export async function autocomplete(q: string, limit = 6): Promise<PositionGroup[
             count(*) as vacancies,
             sum(positions_count) as positions
      from vacancies
-     where position_search ilike any($1::text[])
+     where position_search ilike any($1::text[]) and not is_hidden
      group by position_search
      order by (position_search like $2) desc, sum(positions_count) desc
      limit $3`,
@@ -375,8 +382,43 @@ export async function getAllCompanyStirs(): Promise<string[]> {
 }
 
 export async function getAllVacancyIds(): Promise<number[]> {
-  const rows = await query<{ id: number }>('select id from vacancies order by id');
+  const rows = await query<{ id: number }>('select id from vacancies where not is_hidden order by id');
   return rows.map((r) => r.id);
+}
+
+/** Saqlangan ro'yxat uchun — id bo'yicha (tartib saqlanadi). */
+export async function getVacanciesByIds(ids: number[]): Promise<VacancyListItem[]> {
+  const clean = [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))].slice(0, 100);
+  if (clean.length === 0) return [];
+  const rows = await query<VacancyListItem>(
+    `select ${SELECT_LIST}
+     from vacancies v join companies c on c.stir = v.stir
+     where v.id = any($1::bigint[]) and not v.is_hidden`,
+    [clean],
+  );
+  const order = new Map(clean.map((id, i) => [id, i]));
+  return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+/** "Yangi" nishoni uchun: bazadagi eng so'nggi e'lon sanasi. */
+export async function getLatestPostedDate(): Promise<string | null> {
+  const row = await queryOne<{ latest: string | null }>(
+    'select max(posted_date) as latest from vacancies where not is_hidden',
+  );
+  return row?.latest ?? null;
+}
+
+export interface QuotaCount {
+  quota: string;
+  count: number;
+}
+
+export async function getQuotaCounts(): Promise<QuotaCount[]> {
+  const rows = await query<{ quota: string; count: string }>(
+    `select quota, count(*) as count from vacancies
+     where quota is not null and not is_hidden group by quota order by count(*) desc`,
+  );
+  return rows.map((r) => ({ quota: r.quota, count: Number(r.count) }));
 }
 
 // ---------------------------------------------------------------------------
@@ -408,17 +450,17 @@ export async function getStats(): Promise<StatsBundle> {
     getTopPositions(10),
     query<{ education: string; count: string; positions: string }>(
       `select coalesce(education, 'Kiritilmagan') as education, count(*) as count, sum(positions_count) as positions
-       from vacancies group by education order by count(*) desc`,
+       from vacancies where not is_hidden group by education order by count(*) desc`,
     ),
     query<{ idx: string; count: string }>(
       `select width_bucket(salary, array[1000000, 2000000, 3000000, 5000000, 10000000]) as idx, count(*) as count
-       from vacancies where salary is not null group by 1 order by 1`,
+       from vacancies where salary is not null and not is_hidden group by 1 order by 1`,
     ),
     query<{ label: string; avg_salary: string; count: string }>(
       `select mode() within group (order by position) as label,
               avg(salary) as avg_salary, count(*) as count
        from vacancies
-       where salary is not null
+       where salary is not null and not is_hidden
        group by position_search
        having count(*) >= 5
        order by avg(salary) desc
@@ -521,4 +563,117 @@ export async function getQualityReport() {
             count(*) filter (where position ~ '[Ѐ-ӿ]') as cyrillic
      from vacancies`,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Admin: vakansiyani yashirish / ochish
+// ---------------------------------------------------------------------------
+
+export async function setVacancyHidden(id: number, hidden: boolean): Promise<void> {
+  await query('update vacancies set is_hidden = $2 where id = $1', [id, hidden]);
+}
+
+export async function getHiddenVacancies(limit = 100): Promise<VacancyListItem[]> {
+  return query<VacancyListItem>(
+    `select ${SELECT_LIST} from vacancies v join companies c on c.stir = v.stir
+     where v.is_hidden order by v.id desc limit $1`,
+    [limit],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Telegram obunalari (PLAN §9)
+// ---------------------------------------------------------------------------
+
+export interface Subscription {
+  id: number;
+  tg_chat_id: number;
+  username: string | null;
+  query_norm: string | null;
+  district: string | null;
+  is_active: boolean;
+  notified_at: string | null;
+  created_at: string;
+}
+
+/** Bitta chat — bitta obuna. Qayta /start qilsa yangilanadi. */
+export async function upsertSubscription(
+  chatId: number,
+  username: string | null,
+  queryNorm: string | null,
+  district: string | null,
+): Promise<void> {
+  await query(
+    `insert into subscriptions (tg_chat_id, username, query_norm, district, is_active)
+     values ($1, $2, $3, $4, true)
+     on conflict (tg_chat_id) do update set
+       username = excluded.username, query_norm = excluded.query_norm,
+       district = excluded.district, is_active = true`,
+    [chatId, username, queryNorm, district],
+  );
+}
+
+export async function getSubscription(chatId: number): Promise<Subscription | null> {
+  return queryOne<Subscription>('select * from subscriptions where tg_chat_id = $1', [chatId]);
+}
+
+export async function deactivateSubscription(chatId: number): Promise<void> {
+  await query('update subscriptions set is_active = false where tg_chat_id = $1', [chatId]);
+}
+
+export async function listSubscriptions(limit = 200): Promise<Subscription[]> {
+  return query<Subscription>('select * from subscriptions order by created_at desc limit $1', [limit]);
+}
+
+export async function getSubscriptionStats(): Promise<{ total: number; active: number; notified: number }> {
+  const row = await queryOne<{ total: string; active: string; notified: string }>(
+    `select count(*) as total,
+            count(*) filter (where is_active) as active,
+            count(*) filter (where notified_at is not null) as notified
+     from subscriptions`,
+  );
+  return { total: Number(row?.total ?? 0), active: Number(row?.active ?? 0), notified: Number(row?.notified ?? 0) };
+}
+
+/** Importdan keyin obunachiga mos yangi vakansiyalar (faqat berilgan batch). */
+export async function matchesForSubscription(sub: Subscription, batch: string, limit = 5): Promise<VacancyListItem[]> {
+  const params: unknown[] = [batch];
+  const where = ['v.import_batch = $1', 'not v.is_hidden'];
+  if (sub.query_norm) {
+    const { terms } = await expandQuery(sub.query_norm);
+    params.push(terms.map((t) => `%${t}%`));
+    where.push(`v.position_search ilike any($${params.length}::text[])`);
+  }
+  if (sub.district) {
+    params.push(sub.district);
+    where.push(`v.district = $${params.length}`);
+  }
+  params.push(limit);
+  return query<VacancyListItem>(
+    `select ${SELECT_LIST} from vacancies v join companies c on c.stir = v.stir
+     where ${where.join(' and ')}
+     order by v.salary desc nulls last, v.id desc limit $${params.length}`,
+    params,
+  );
+}
+
+export async function markNotified(chatId: number): Promise<void> {
+  await query('update subscriptions set notified_at = now() where tg_chat_id = $1', [chatId]);
+}
+
+/** Bot ichidagi oddiy qidiruv — sayt bilan bitta normalize()/sinonim mantiqi. */
+export async function botSearch(q: string, district: string | null, limit = 5): Promise<{ rows: VacancyListItem[]; total: number }> {
+  const result = await searchVacancies({
+    q,
+    districts: district ? [district] : undefined,
+    perPage: limit,
+    sort: 'maosh-kop',
+  });
+  return { rows: result.rows, total: result.total };
+}
+
+/** Oxirgi import batch nomi (bildirishnoma skripti uchun). */
+export async function getLatestBatch(): Promise<string | null> {
+  const row = await queryOne<{ batch: string }>('select batch from import_history order by created_at desc limit 1');
+  return row?.batch ?? null;
 }

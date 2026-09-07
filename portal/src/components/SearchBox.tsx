@@ -119,7 +119,7 @@ export function SearchBox({
           e.preventDefault();
           submit(value);
         }}
-        className={`flex overflow-hidden rounded-karta border bg-oq transition-shadow ${
+        className={`flex overflow-hidden rounded-karta border bg-yuza transition-shadow ${
           open && items.length ? 'border-chinni shadow-[0_8px_28px_-12px_rgba(19,145,165,0.45)]' : 'border-chiziq'
         }`}
       >
@@ -157,7 +157,7 @@ export function SearchBox({
         <ul
           id={listId}
           role="listbox"
-          className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-karta border border-chiziq bg-oq shadow-[0_12px_34px_-14px_rgba(16,35,58,0.35)]"
+          className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-karta border border-chiziq bg-yuza shadow-[0_12px_34px_-14px_rgba(16,35,58,0.35)]"
         >
           {items.map((item, i) => {
             // Bazadagi yozuv kirillcha bo'lishi mumkin — ekranda tanlangan
@@ -171,7 +171,7 @@ export function SearchBox({
                 onMouseEnter={() => setActive(i)}
                 onClick={() => submit(label)}
                 className={`flex w-full items-center justify-between gap-4 px-4 py-2.5 text-left text-sm transition-colors ${
-                  i === active ? 'bg-chinni/8 text-chinni' : 'hover:bg-qogoz'
+                  i === active ? 'bg-chinni/8 text-chinni' : 'hover:bg-fon'
                 }`}
               >
                 <span className="line-clamp-1">{label}</span>

@@ -12,7 +12,15 @@ export const revalidate = 86400;
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
-  const [vacancyIds, stirs] = await Promise.all([getAllVacancyIds(), getAllCompanyStirs()]);
+  // Baza vaqtincha ulanmasa (masalan, build paytida) — statik sahifalar
+  // bilan chegaralanamiz; build yiqilmaydi, keyingi revalidate'da to'ladi.
+  let vacancyIds: number[] = [];
+  let stirs: string[] = [];
+  try {
+    [vacancyIds, stirs] = await Promise.all([getAllVacancyIds(), getAllCompanyStirs()]);
+  } catch (err) {
+    console.error('sitemap: baza ulanmadi —', err instanceof Error ? err.message : err);
+  }
 
   return [
     { url: base, changeFrequency: 'daily', priority: 1 },

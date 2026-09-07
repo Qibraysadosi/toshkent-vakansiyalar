@@ -67,7 +67,7 @@ export function DistrictMap({
                   x={d.label[0]}
                   y={d.label[1] - 6}
                   textAnchor="middle"
-                  className="fill-siyoh"
+                  className="fill-matn"
                   style={{ fontSize: 21, fontWeight: 600 }}
                 >
                   {label}
@@ -103,7 +103,7 @@ export function DistrictMap({
           <li key={d.slug}>
             <Link
               href={`/tuman/${d.slug}`}
-              className="flex items-center justify-between gap-2 rounded-karta border border-chiziq bg-oq px-3 py-2.5 transition-colors hover:border-chinni/50"
+              className="flex items-center justify-between gap-2 rounded-karta border border-chiziq bg-yuza px-3 py-2.5 transition-colors hover:border-chinni/50"
             >
               <span className="text-xs">{script === 'cyr' ? d.cyr : d.lat}</span>
               <span className="raqam text-xs text-chinni">{nf.format(counts[d.db] ?? 0)}</span>

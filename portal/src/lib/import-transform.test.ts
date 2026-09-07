@@ -154,6 +154,25 @@ describe('transformRows', () => {
     expect(report.duplicatesMerged).toBe(2);
   });
 
+  it('faqat sanasi farq qilgan qatorlar ham birlashadi — eng so\'nggi sana qoladi', () => {
+    const { vacancies } = transformRows(
+      [row({ posted_date: '01.07.2026' }), row({ posted_date: '05.07.2026' }), row({ posted_date: '03.07.2026' })],
+      HEADER,
+      'b1',
+    );
+    expect(vacancies).toHaveLength(1);
+    expect(vacancies[0].positions_count).toBe(3);
+    expect(vacancies[0].posted_date).toBe('2026-07-05');
+  });
+
+  it('fingerprint barqaror: sana va batch o\'zgarsa ham bir xil', () => {
+    const a = transformRows([row({ posted_date: '01.07.2026' })], HEADER, '2026-07').vacancies[0];
+    const b = transformRows([row({ posted_date: '02.08.2026' })], HEADER, '2026-08').vacancies[0];
+    expect(a.fingerprint).toBe(b.fingerprint);
+    const c = transformRows([row({ salary: '3000000' })], HEADER, '2026-08').vacancies[0];
+    expect(c.fingerprint).not.toBe(a.fingerprint);
+  });
+
   it('farqi bor qatorlar birlashmaydi', () => {
     const { vacancies } = transformRows([row(), row({ position: 'Ошпаз' })], HEADER, 'b1');
     expect(vacancies).toHaveLength(2);

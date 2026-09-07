@@ -3,19 +3,105 @@
 /* ==========================================================================
    DIZAYN-TIZIM — PLAN.md §5 "Toshkent koshinlari"
    Davlat ma'lumotiga ishonch + shahar identiteti. Sokin, aniq, professional.
+
+   Ranglar ikki qatlamda:
+     1) Brend konstantalari (siyoh, chinni, quyosh, qogoz) — mavzuga bog'liq emas.
+     2) Semantik tokenlar (fon, yuza, matn, tosh, chiziq) — yorug'/tungi
+        rejimda almashadi. Komponentlar faqat shularni ishlatadi.
    ========================================================================== */
 
-@theme {
-  /* --- §5.1 Ranglar ---------------------------------------------------- */
-  --color-siyoh: #10233a; /* asosiy matn, footer */
-  --color-chinni: #1391a5; /* asosiy aksent: linklar, CTA, faol filtr */
-  --color-chinni-toq: #0c6b7a; /* hover, bosilgan holat */
-  --color-quyosh: #eba937; /* ikkilamchi urg'u — ekranda BITTA joyda */
-  --color-qogoz: #f7f4ee; /* sahifa foni (iliq oq) */
-  --color-tosh: #66707d; /* ikkilamchi matn, meta */
+:root {
+  color-scheme: light;
 
-  --color-chiziq: #e2ded5; /* qog'oz ustidagi nozik chegara */
-  --color-oq: #ffffff;
+  /* brend */
+  --siyoh: #10233a;
+  --chinni: #1391a5;
+  --chinni-toq: #0c6b7a;
+  --quyosh: #eba937;
+  --quyosh-matn: #8a6011;
+  --qogoz: #f7f4ee;
+
+  /* semantik */
+  --fon: #f7f4ee;
+  --yuza: #ffffff;
+  --matn: #10233a;
+  --tosh: #66707d;
+  --chiziq: #e2ded5;
+  --soya: 16 35 58; /* rgb — soyalar uchun */
+
+  /* grafiklar (validator: oq yuza) */
+  --chart-accent: #1391a5;
+  --chart-ramp-1: #094f5b;
+  --chart-ramp-2: #1391a5;
+  --chart-ramp-3: #6fbfce;
+  --chart-grid: #e2ded5;
+  --chart-muted: #66707d;
+  --chart-ink: #10233a;
+}
+
+/* Tungi rejim: tizim sozlamasi (agar foydalanuvchi aniq yorug'ni tanlamagan bo'lsa) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --chinni: #1fa3b8;
+    --chinni-toq: #5fcadb;
+    --quyosh-matn: #f2c567;
+
+    --fon: #0e1a2b;
+    --yuza: #16263c;
+    --matn: #eef1f4;
+    --tosh: #9aa5b4;
+    --chiziq: #263a55;
+    --soya: 0 0 0;
+
+    /* grafiklar (validator: #162B45 yuza) */
+    --chart-accent: #1fa3b8;
+    --chart-ramp-1: #1b8799;
+    --chart-ramp-2: #4cc4d6;
+    --chart-ramp-3: #9ae0eb;
+    --chart-grid: #263a55;
+    --chart-muted: #9aa5b4;
+    --chart-ink: #eef1f4;
+  }
+}
+
+/* Tungi rejim: foydalanuvchi aniq tanlagan */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --chinni: #1fa3b8;
+  --chinni-toq: #5fcadb;
+  --quyosh-matn: #f2c567;
+
+  --fon: #0e1a2b;
+  --yuza: #16263c;
+  --matn: #eef1f4;
+  --tosh: #9aa5b4;
+  --chiziq: #263a55;
+  --soya: 0 0 0;
+
+  --chart-accent: #1fa3b8;
+  --chart-ramp-1: #1b8799;
+  --chart-ramp-2: #4cc4d6;
+  --chart-ramp-3: #9ae0eb;
+  --chart-grid: #263a55;
+  --chart-muted: #9aa5b4;
+  --chart-ink: #eef1f4;
+}
+
+@theme inline {
+  /* --- §5.1 Ranglar → Tailwind tokenlari ------------------------------- */
+  --color-siyoh: var(--siyoh);
+  --color-chinni: var(--chinni);
+  --color-chinni-toq: var(--chinni-toq);
+  --color-quyosh: var(--quyosh);
+  --color-quyosh-matn: var(--quyosh-matn);
+  --color-qogoz: var(--qogoz);
+
+  --color-fon: var(--fon);
+  --color-yuza: var(--yuza);
+  --color-matn: var(--matn);
+  --color-tosh: var(--tosh);
+  --color-chiziq: var(--chiziq);
 
   /* --- §5.2 Tipografika ------------------------------------------------ */
   --font-display: var(--font-unbounded), system-ui, sans-serif;
@@ -30,7 +116,9 @@
   --text-2xl: 2.5rem; /* 40 */
   --text-3xl: 3.5rem; /* 56 */
 
-  --radius-karta: 0.75rem;
+  --radius-karta: 0.875rem;
+  --shadow-karta: 0 1px 2px rgb(var(--soya) / 0.06), 0 8px 24px -16px rgb(var(--soya) / 0.25);
+  --shadow-kotarilgan: 0 2px 4px rgb(var(--soya) / 0.06), 0 14px 32px -14px rgb(var(--soya) / 0.35);
 }
 
 /* ==========================================================================
@@ -39,34 +127,41 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--color-qogoz);
-  color: var(--color-siyoh);
+  background: var(--fon);
+  color: var(--matn);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
-  line-height: 1.6; /* §5.2 — matnda 1.6 */
+  line-height: 1.6; /* §5.2 */
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* §5.5 — klaviatura fokus halqalari ko'rinadi */
 :focus-visible {
-  outline: 2px solid var(--color-chinni);
+  outline: 2px solid var(--chinni);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--color-chinni) 22%, transparent);
+  background: color-mix(in srgb, var(--chinni) 24%, transparent);
 }
 
-/* Sarlavhalar zichroq — display shrift yirik o'lchamda ishlaydi */
 h1,
 h2,
 h3 {
   line-height: 1.15;
   letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 /* Ma'lumot raqamlari ustma-ust tekis turadi (§5.2 — "reyestr" hissi) */
@@ -74,6 +169,31 @@ h3 {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
+}
+
+/* Hero sarlavha — ekranga qarab o'sadi (telefon → keng monitor) */
+.hero-sarlavha {
+  font-size: clamp(2.25rem, 2rem + 4vw, 4.25rem);
+  line-height: 1.02;
+}
+
+/* Mobil pastki navigatsiya uchun joy (iPhone safe-area bilan) */
+.mobil-nav-joy {
+  padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .mobil-nav-joy {
+    padding-bottom: 0;
+  }
+}
+
+/* Koshin naqshi — hero fonida juda nozik (§5 — shahar identiteti) */
+.koshin-fon {
+  background-image:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--chinni) 7%, transparent) 0 1px, transparent 1.5px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.9), transparent 85%);
+  -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.9), transparent 85%);
 }
 
 /* ==========================================================================
@@ -91,7 +211,6 @@ h3 {
   }
 }
 
-/* Ro'yxat yangilanishida 150ms stagger-fade */
 .stagger > * {
   animation: ko-tarilish 0.24s ease-out backwards;
 }
@@ -111,14 +230,14 @@ h3 {
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: var(--color-chiziq);
+  background: var(--chiziq);
 }
 .skeleton::after {
   content: '';
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.65), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--yuza) 70%, transparent), transparent);
   animation: shimmer 1.6s infinite;
 }
 
@@ -140,29 +259,33 @@ h3 {
    ========================================================================== */
 
 .tuman-poligon {
-  fill: var(--color-oq);
-  stroke: var(--color-chiziq);
+  fill: var(--yuza);
+  stroke: var(--chiziq);
   stroke-width: 2;
   transition: fill 0.18s ease, stroke 0.18s ease;
   cursor: pointer;
 }
 .tuman-poligon:hover,
 .tuman-poligon:focus-visible {
-  fill: color-mix(in srgb, var(--color-chinni) 16%, white);
-  stroke: var(--color-chinni);
+  fill: color-mix(in srgb, var(--chinni) 16%, var(--yuza));
+  stroke: var(--chinni);
 }
 .tuman-guruh[data-faol='true'] .tuman-poligon {
-  fill: color-mix(in srgb, var(--color-chinni) 26%, white);
-  stroke: var(--color-chinni-toq);
+  fill: color-mix(in srgb, var(--chinni) 26%, var(--yuza));
+  stroke: var(--chinni-toq);
 }
 .tuman-guruh text {
   pointer-events: none;
   user-select: none;
 }
 
-/* Bosma uchun: xarita va filtrlar kerak emas */
+/* Bosma uchun */
 @media print {
   .bosmada-yashir {
     display: none !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
   }
 }

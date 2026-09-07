@@ -18,9 +18,12 @@
     "db:schema": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f supabase/schema.sql",
     "db:reset": "psql \"$DATABASE_URL\" -c \"drop table if exists vacancies, companies, synonyms, search_logs, subscriptions, import_history cascade\" && npm run db:schema",
     "enrich": "tsx scripts/enrich.ts",
-    "enrich:probe": "tsx scripts/enrich.ts --probe"
+    "enrich:probe": "tsx scripts/enrich.ts --probe",
+    "telegram:setup": "tsx scripts/telegram-setup.ts",
+    "notify": "tsx scripts/notify.ts"
   },
   "dependencies": {
+    "grammy": "^1.46.0",
     "next": "^15.5.23",
     "pg": "^8.23.0",
     "react": "^19.2.0",

@@ -37,6 +37,8 @@ export type VacancyRow = {
   positions_count: number;
   views: number;
   import_batch: string;
+  is_hidden: boolean;
+  fingerprint: string;
 }
 
 export type SynonymRow = {

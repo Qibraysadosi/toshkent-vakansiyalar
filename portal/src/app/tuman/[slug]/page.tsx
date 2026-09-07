@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DISTRICTS, districtBySlug } from '@/lib/districts';
-import { getDistrictCounts, searchVacancies } from '@/lib/queries';
+import { getDistrictCounts, getLatestPostedDate, searchVacancies } from '@/lib/queries';
 import { getScript } from '@/lib/script';
 import { formatNumber } from '@/lib/format';
 import { VacancyCard } from '@/components/VacancyCard';
@@ -37,9 +37,10 @@ export default async function DistrictPage({ params }: { params: Promise<{ slug:
   const script = await getScript();
   const cyr = script === 'cyr';
 
-  const [result, counts] = await Promise.all([
+  const [result, counts, newSince] = await Promise.all([
     searchVacancies({ districts: [d.db], perPage: 20, sort: 'yangi' }),
     getDistrictCounts(),
+    getLatestPostedDate(),
   ]);
   const stat = counts.find((c) => c.district === d.db);
 
@@ -77,7 +78,7 @@ export default async function DistrictPage({ params }: { params: Promise<{ slug:
       <ul className="stagger mt-8 grid gap-3">
         {result.rows.map((v) => (
           <li key={v.id}>
-            <VacancyCard v={v} script={script} />
+            <VacancyCard v={v} script={script} newSince={newSince} />
           </li>
         ))}
       </ul>
@@ -100,7 +101,7 @@ export default async function DistrictPage({ params }: { params: Promise<{ slug:
             <li key={x.slug}>
               <Link
                 href={`/tuman/${x.slug}`}
-                className="inline-block rounded-full border border-chiziq bg-oq px-3.5 py-1.5 text-xs transition-colors hover:border-chinni hover:text-chinni"
+                className="inline-block rounded-full border border-chiziq bg-yuza px-3.5 py-1.5 text-xs transition-colors hover:border-chinni hover:text-chinni"
               >
                 {cyr ? x.cyr : x.lat}
               </Link>

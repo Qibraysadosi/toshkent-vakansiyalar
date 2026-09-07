@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { searchVacancies } from '@/lib/queries';
+import { getVacanciesByIds, searchVacancies } from '@/lib/queries';
 import { parseSearchParams } from '@/lib/search-params';
 import { rateLimit } from '@/lib/rate-limit';
 
@@ -12,19 +12,27 @@ export const dynamic = 'force-dynamic';
  *   GET /api/v1/vacancies?q=qorovul&tuman=chilonzor&limit=20&sahifa=2
  *
  * Parametrlar sayt URL'i bilan bir xil: q, tuman, talim, stavka, maosh,
- * maoshli, kvota, saralash, sahifa. Qo'shimcha: limit (1..100).
+ * maoshli, kvota, saralash, sahifa. Qo'shimcha: limit (1..100),
+ * ids=1,2,3 (aniq yozuvlar — saqlanganlar ro'yxati uchun).
  */
 export async function GET(request: Request) {
   const limited = rateLimit(request, { key: 'api-v1', limit: 120, windowMs: 60_000 });
   if (limited) return limited;
 
   const url = new URL(request.url);
-  const parsed = parseSearchParams(url.searchParams);
 
-  const limitRaw = url.searchParams.get('limit');
-  const perPage = limitRaw && /^\d+$/.test(limitRaw) ? Math.min(100, Math.max(1, Number(limitRaw))) : 20;
-
-  const result = await searchVacancies({ ...parsed, perPage });
+  const idsRaw = url.searchParams.get('ids');
+  let result;
+  if (idsRaw) {
+    const ids = idsRaw.split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+    const rows = await getVacanciesByIds(ids);
+    result = { rows, total: rows.length, page: 1, perPage: rows.length || 1, fuzzy: false };
+  } else {
+    const parsed = parseSearchParams(url.searchParams);
+    const limitRaw = url.searchParams.get('limit');
+    const perPage = limitRaw && /^\d+$/.test(limitRaw) ? Math.min(100, Math.max(1, Number(limitRaw))) : 20;
+    result = await searchVacancies({ ...parsed, perPage });
+  }
 
   return NextResponse.json(
     {
