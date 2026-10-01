@@ -1,9 +1,14 @@
 import { VacancyCardSkeleton } from '@/components/VacancyCard';
 
-/** §5.4 — spinner emas, karta shaklidagi shimmer. */
+/**
+ * §5.4 — spinner emas, karta shaklidagi shimmer. `role="status"` — ekran
+ * o'qigich yuklanayotganini eshitadi. Loading cookie o'qiy olmaydi (async
+ * emas), shuning uchun yashirin matn ikkala alifboda.
+ */
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6" role="status" aria-busy="true">
+      <span className="sr-only">Yuklanmoqda… · Юкланмоқда…</span>
       <div className="mb-8 max-w-2xl">
         <div className="skeleton h-8 w-48 rounded" />
         <div className="skeleton mt-4 h-12 rounded-karta" />

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const idsRaw = url.searchParams.get('ids');
   let result;
   if (idsRaw) {
-    const ids = idsRaw.split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+    const ids = idsRaw.split(',').map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 100);
     const rows = await getVacanciesByIds(ids);
     result = { rows, total: rows.length, page: 1, perPage: rows.length || 1, fuzzy: false };
   } else {

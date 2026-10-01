@@ -40,6 +40,12 @@ export function educationSlug(db: string): string {
   return EDUCATION_TO_SLUG.get(db) ?? db;
 }
 
+/** Maosh parametri — faqat butun son. parseSearchParams va activeChips bir xil tekshiradi. */
+const SALARY_RE = /^\d+$/;
+
+/** Qidiruv so'rovining maksimal uzunligi (autocomplete bilan bir xil). */
+const MAX_QUERY_LENGTH = 100;
+
 function all(params: URLSearchParams, key: string): string[] {
   return params.getAll(key).flatMap((v) => v.split(',')).map((v) => v.trim()).filter(Boolean);
 }
@@ -57,7 +63,7 @@ export function parseSearchParams(params: URLSearchParams): SearchParams & { has
   const stavka = all(params, PARAM.stavka).filter((s) => /^\d+(\.\d+)?$/.test(s));
 
   const salaryRaw = params.get(PARAM.salaryMin);
-  const salaryMin = salaryRaw && /^\d+$/.test(salaryRaw) ? Number(salaryRaw) : undefined;
+  const salaryMin = salaryRaw && SALARY_RE.test(salaryRaw) ? Number(salaryRaw) : undefined;
 
   const onlyWithSalary = params.get(PARAM.onlyWithSalary) === '1';
 
@@ -74,7 +80,7 @@ export function parseSearchParams(params: URLSearchParams): SearchParams & { has
   const pageRaw = params.get(PARAM.page);
   const page = pageRaw && /^\d+$/.test(pageRaw) ? Math.max(1, Number(pageRaw)) : 1;
 
-  const q = params.get(PARAM.q)?.trim() ?? '';
+  const q = (params.get(PARAM.q) ?? '').trim().slice(0, MAX_QUERY_LENGTH);
 
   return {
     q: q || undefined,
@@ -119,7 +125,7 @@ export function activeChips(params: URLSearchParams, script: 'lat' | 'cyr'): Act
     chips.push({ key: PARAM.stavka, value: s, label: `${s.replace('.', ',')} ${cyr ? 'ставка' : 'stavka'}` });
   }
   const salary = params.get(PARAM.salaryMin);
-  if (salary) {
+  if (salary && SALARY_RE.test(salary)) {
     const mln = Number(salary) / 1_000_000;
     chips.push({
       key: PARAM.salaryMin,

@@ -3,30 +3,37 @@ import { Unbounded, Golos_Text, IBM_Plex_Mono } from 'next/font/google';
 import Link from 'next/link';
 import { getScript } from '@/lib/script';
 import { getTheme } from '@/lib/theme';
-import { siteUrl } from '@/lib/env';
+import { dbConfigured, siteUrl } from '@/lib/env';
 import { ScriptToggle } from '@/components/ScriptToggle';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MobileNav } from '@/components/MobileNav';
 import { Shortcuts } from '@/components/Shortcuts';
+import { SetupNotice } from '@/components/SetupNotice';
 import './globals.css';
 
-/* PLAN §5.2 — uchala shrift ham to'liq kirill + lotin qo'llab-quvvatlaydi. */
+/*
+ * PLAN §5.2 — uchala shrift ham to'liq kirill + lotin qo'llab-quvvatlaydi.
+ * `subsets` faqat qaysi fayllar oldindan yuklanishini (preload) belgilaydi —
+ * qolgan @font-face'lar (cyrillic-ext: Қ Ғ Ҳ) unicode-range bo'yicha kerak
+ * bo'lganda yuklanadi. `latin-ext` o'zbek matnida ishlatilmaydi (ʻ U+02BB
+ * `latin` ichida) — uni preload qilish ~146 KB behuda edi, LCP'ga zarar.
+ */
 const unbounded = Unbounded({
-  subsets: ['latin', 'latin-ext', 'cyrillic'],
+  subsets: ['latin', 'cyrillic'],
   weight: ['500', '600', '700'],
   variable: '--font-unbounded',
   display: 'swap',
 });
 
 const golos = Golos_Text({
-  subsets: ['latin', 'latin-ext', 'cyrillic'],
+  subsets: ['latin', 'cyrillic'],
   weight: ['400', '500', '600'],
   variable: '--font-golos',
   display: 'swap',
 });
 
 const plexMono = IBM_Plex_Mono({
-  subsets: ['latin', 'latin-ext', 'cyrillic'],
+  subsets: ['latin', 'cyrillic'],
   weight: ['500'],
   variable: '--font-plex-mono',
   display: 'swap',
@@ -64,9 +71,16 @@ const NAV = [
   { href: '/saqlangan', lat: 'Saqlangan', cyr: 'Сақланган' },
 ] as const;
 
+/** PLAN §9 — botga deep-link CTA. `NEXT_PUBLIC_TG_BOT` (bot username) bo'lmasa ko'rsatilmaydi. */
+function tgBotUrl(): string | null {
+  const bot = process.env.NEXT_PUBLIC_TG_BOT?.trim().replace(/^@/, '');
+  return bot ? `https://t.me/${bot}` : null;
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [script, theme] = await Promise.all([getScript(), getTheme()]);
   const cyr = script === 'cyr';
+  const botUrl = tgBotUrl();
 
   return (
     <html
@@ -83,13 +97,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {cyr ? 'Асосий қисмга ўтиш' : "Asosiy qismga o'tish"}
         </a>
 
-        <header className="bosmada-yashir sticky top-0 z-40 border-b border-chiziq bg-fon/85 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-6xl items-center gap-5 px-4 sm:h-16 sm:px-6">
-            <Link href="/" className="font-display text-base font-700 tracking-tight text-matn">
+        {/* 320–360px: logo 16px + qisqa alifbo yorliqlari + gap-3 — qator ≈ 270px, sig'adi.
+            `overflow-x-clip` — kelajakda uzunroq yorliq sahifani gorizontal surmasin. */}
+        <header className="bosmada-yashir sticky top-0 z-40 overflow-x-clip border-b border-chiziq bg-fon/85 backdrop-blur">
+          <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:h-16 sm:gap-5 sm:px-6">
+            <Link href="/" className="shrink-0 whitespace-nowrap font-display text-sm font-700 tracking-tight text-matn sm:text-base">
               Toshkent<span className="text-chinni">.ish</span>
             </Link>
 
-            <nav className="hidden gap-5 text-xs md:flex">
+            <nav aria-label={cyr ? 'Асосий' : 'Asosiy'} className="hidden gap-5 text-xs md:flex">
               {NAV.map((item) => (
                 <Link key={item.href} href={item.href} className="text-tosh transition-colors hover:text-chinni">
                   {cyr ? item.cyr : item.lat}
@@ -97,7 +113,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               ))}
             </nav>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               <ThemeToggle current={theme} script={script} />
               <ScriptToggle current={script} />
             </div>
@@ -105,7 +121,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </header>
 
         <main id="asosiy" className="flex-1">
-          {children}
+          {dbConfigured() ? children : <SetupNotice cyr={cyr} />}
         </main>
 
         <footer className="bosmada-yashir mt-20 bg-siyoh text-qogoz">
@@ -122,7 +138,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </p>
               </div>
 
-              <nav className="grid grid-cols-2 gap-x-10 gap-y-2 text-xs sm:grid-cols-1">
+              <nav aria-label={cyr ? 'Футер' : 'Futer'} className="grid grid-cols-2 gap-x-10 gap-y-2 text-xs sm:grid-cols-1">
                 {NAV.map((item) => (
                   <Link key={item.href} href={item.href} className="text-qogoz/70 hover:text-white">
                     {cyr ? item.cyr : item.lat}
@@ -136,6 +152,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </Link>
               </nav>
             </div>
+
+            {botUrl && (
+              <a
+                href={botUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-10 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs text-qogoz transition-colors hover:border-[#5fcadb] hover:text-[#5fcadb]"
+              >
+                {cyr ? 'Янги вакансиялардан хабардор бўлинг — Telegram бот' : "Yangi vakansiyalardan xabardor bo'ling — Telegram bot"}
+              </a>
+            )}
 
             <p className="mt-10 border-t border-white/10 pt-6 text-xs text-qogoz/50">
               {cyr

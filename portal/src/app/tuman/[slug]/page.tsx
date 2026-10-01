@@ -7,12 +7,12 @@ import { getScript } from '@/lib/script';
 import { formatNumber } from '@/lib/format';
 import { VacancyCard } from '@/components/VacancyCard';
 
-export const revalidate = 3600;
-
-/** 12 ta SEO sahifa oldindan generatsiya qilinadi (PLAN §6). */
-export function generateStaticParams() {
-  return DISTRICTS.map((d) => ({ slug: d.slug }));
-}
+/*
+ * Sahifa har so'rovda server tomonda render qilinadi: layout cookie o'qiydi
+ * (alifbo/mavzu), shuning uchun `revalidate`/`generateStaticParams` baribir
+ * ishlamas edi — faqat build'ni bazaga bog'lab qo'yardi. Oshkora dinamik.
+ */
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
@@ -86,7 +86,7 @@ export default async function DistrictPage({ params }: { params: Promise<{ slug:
       {result.total > result.rows.length && (
         <Link
           href={`/vakansiyalar?tuman=${d.slug}`}
-          className="mt-8 inline-block rounded-karta bg-chinni px-5 py-2.5 text-sm text-white transition-colors hover:bg-chinni-toq"
+          className="mt-8 inline-block rounded-karta bg-chinni px-5 py-2.5 text-sm text-chinni-ustida transition-colors hover:bg-chinni-toq"
         >
           {cyr ? 'Барчасини кўриш' : "Barchasini ko'rish"} ({formatNumber(result.total)})
         </Link>

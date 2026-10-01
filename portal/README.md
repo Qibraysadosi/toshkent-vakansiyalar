@@ -38,10 +38,24 @@ Admin panel: `.env.local` da `ADMIN_PASSWORD` ni o'rnating va
 ## Tekshiruv
 
 ```bash
-npm test          # normalize, transliterate va import qoidalari (50 test)
+npm test          # normalize, transliterate, format va import qoidalari (vitest)
+npm run lint      # ESLint 9 (next/core-web-vitals + typescript)
 npm run typecheck
 npm run build
 ```
+
+## Bulutda ishlash — Claude Code (kompyuter shart emas)
+
+Repo ildizidagi `.claude/hooks/session-start.sh` har yangi **Claude Code (web)**
+sessiyasida o'zi ishga tushadi: Postgres'ni ko'taradi, `schema.sql` ni qo'llaydi,
+`portal/.env.local` yozadi, `npm install` qiladi. Shuning uchun telefondagi
+Claude ilovasidan ochilgan sessiyada ham `npm test`, `npm run build`, `npm run dev`
+darhol ishlaydi.
+
+- Sessiyada **ma'lumot ham bo'lsin** desangiz, Excel faylni `portal/data/seed/`
+  papkasiga qo'yib commit qiling — baza bo'sh bo'lsa hook uni o'zi import qiladi.
+- Yoki Claude Code muhit sozlamalarida `DATABASE_URL` ni (Supabase) secret sifatida
+  bering — sessiya to'g'ridan-to'g'ri haqiqiy bazaga ulanadi (`db:reset` ishlatmang!).
 
 ## Nima uchun `normalize()` muhim
 
@@ -77,7 +91,7 @@ portal/
 | `/vakansiyalar` | Ro'yxat + filtrlar (hammasi URL query'da, ulashsa bo'ladi) |
 | `/vakansiya/[id]` | To'liq ma'lumot, `tel:` tugma, o'xshash vakansiyalar, JobPosting schema |
 | `/korxona/[stir]` | Korxona kartasi + barcha vakansiyalari |
-| `/tuman/[slug]` | 12 ta SEO sahifa (statik generatsiya) |
+| `/tuman/[slug]` | 12 ta tuman sahifasi (SEO, har so'rovda render) |
 | `/statistika` | Ochiq analitika (Recharts) |
 | `/saqlangan` | Saqlangan vakansiyalar (brauzerda, loginsiz) |
 | `/admin` | Parol bilan: import (oldindan ko'rish → tasdiqlash), vakansiyalarni yashirish, sinonimlar, loglar, Telegram |
@@ -94,6 +108,23 @@ portal/
 - Barqaror havolalar: oylik importda bir xil vakansiya o'z manzilini saqlab qoladi
 - Telegram bot: kasb + tuman bo'yicha obuna, importdan keyin xabar
 
-## Deploy
+## Deploy (Vercel + Supabase)
 
-Vercel · **Root Directory: `portal`** · muhit o'zgaruvchilari `.env.example` bo'yicha.
+Vercel loyihasi: **`toshkent-vakansiyalar`** (Root Directory: `portal`, framework: Next.js).
+Muhit o'zgaruvchilari — `.env.example` bo'yicha; `ADMIN_PASSWORD` va
+`TG_WEBHOOK_SECRET` Vercel'da o'rnatilgan, `NEXT_PUBLIC_SITE_URL` shart emas
+(Vercel'ning `VERCEL_PROJECT_PRODUCTION_URL` idan olinadi).
+
+1. **Supabase**: yangi loyiha → SQL Editor → `supabase/schema.sql` matnini ishga
+   tushiring. Settings → Database → Connection string → URI, **Transaction pooler**
+   (port 6543) manzilini nusxalang.
+2. **Vercel** → loyiha → Settings → Environment Variables → `DATABASE_URL` = shu
+   manzil (Production + Preview) → Deployments → Redeploy.
+   `DATABASE_URL` bo'lmasa sayt xato o'rniga shu qadamlarni ko'rsatib turadi.
+3. `/admin` → Import orqali Excel yuklang (Vercel'da fayl **4,5 MB** dan katta
+   bo'lmasin; kattasi uchun kompyuterda `npm run import -- fayl.xlsx`).
+4. Har push'da avtomatik deploy uchun Vercel'ga GitHub ilovasini ulang:
+   vercel.com → Add New → Project → Import Git Repository → `Jhonjonsin2006/fintellect`
+   (loyiha allaqachon bor — Settings → Git → Connect ham bo'ladi).
+5. Telegram: `TG_BOT_TOKEN` ni qo'shib redeploy qiling, keyin bir marta
+   `npm run telegram:setup`.

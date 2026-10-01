@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { notFound } from 'next/navigation';
 import { getVacancy } from '@/lib/queries';
 import { districtLabel } from '@/lib/districts';
 import { formatSalary } from '@/lib/format';
@@ -9,22 +10,37 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 /**
+ * URL'dagi id — faqat 1..15 xonali musbat butun son (page.tsx bilan bir xil qoida).
+ * `Number('abc')` bigint ustuniga ketsa pg 500 beradi — so'rovdan oldin tekshiriladi.
+ */
+function parseVacancyId(id: string): number | null {
+  const n = /^\d{1,15}$/.test(id) ? Number(id) : Number.NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/**
  * PLAN §10 — ulashilganda lavozim + maosh + tuman brendli kartada ko'rinadi
  * (Telegramda chiroyli preview).
  *
  * Shrift yuklanmaydi: tashqi so'rovsiz tizim shriftida chiziladi, shunda rasm
  * har qanday muhitda ishlaydi va tez tayyorlanadi.
+ *
+ * Yashirilgan / yo'q vakansiya — 404 (sahifa bilan bir xil), aks holda admin yashirgan
+ * kartani hamma ko'raverardi. `ImageResponse` standart holda 1 yillik immutable
+ * cache-control qo'yadi — 24 soatga qisqartiramiz, yashirilgan/o'zgargan karta eskirsin.
  */
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const v = await getVacancy(Number(id));
+  const vid = parseVacancyId(id);
+  const v = vid === null ? null : await getVacancy(vid);
+  if (!v || v.is_hidden) notFound();
 
   // Satori standart shrifti kirill glifsiz — matnni lotinga o'giramiz.
   // Saytning standart alifbosi ham lotin, ya'ni ulashilgan karta sayt bilan mos.
-  const position = transliterate(v?.position ?? 'Vakansiya', 'lat');
-  const company = transliterate(v?.company_name ?? '', 'lat');
-  const district = v ? districtLabel(v.district) : '';
-  const salary = v ? formatSalary(v.salary === null ? null : Number(v.salary), v.salary_note) : null;
+  const position = transliterate(v.position || 'Vakansiya', 'lat');
+  const company = transliterate(v.company_name, 'lat');
+  const district = districtLabel(v.district);
+  const salary = formatSalary(v.salary === null ? null : Number(v.salary), v.salary_note);
 
   return new ImageResponse(
     (
@@ -70,16 +86,19 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             style={{
               fontSize: 44,
               fontWeight: 600,
-              color: salary?.muted ? '#66707D' : '#0C6B7A',
+              color: salary.muted ? '#66707D' : '#0C6B7A',
               display: 'flex',
             }}
           >
-            {salary?.text ?? ''}
+            {salary.text}
           </div>
           <div style={{ fontSize: 30, color: '#66707D', display: 'flex' }}>{district}</div>
         </div>
       </div>
     ),
-    size,
+    {
+      ...size,
+      headers: { 'cache-control': 'public, max-age=86400, s-maxage=86400' },
+    },
   );
 }

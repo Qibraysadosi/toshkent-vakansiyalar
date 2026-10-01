@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getHiddenVacancies, searchVacancies } from '@/lib/queries';
+import { getHiddenVacancies, getVacancy, searchVacancies } from '@/lib/queries';
 import { formatNumber, formatSalary } from '@/lib/format';
 import { districtLabel } from '@/lib/districts';
 import { HideToggle } from '../forms';
@@ -11,13 +11,16 @@ export default async function AdminVacanciesPage({ searchParams }: { searchParam
   const { q = '' } = await searchParams;
   const term = q.trim();
 
-  const isId = /^\d+$/.test(term);
+  // Raqam — ID bo'yicha bevosita (`getVacancy` yashirilganlarni ham topadi);
+  // matn — qidiruv. Raqam uzunligi chegaralangan: bigint'dan tashqari qiymat
+  // `where v.id = $1` da pg xatosiga aylanmasin.
+  const isId = /^\d{1,15}$/.test(term);
   const [found, hidden] = await Promise.all([
-    term
-      ? searchVacancies({ q: isId ? undefined : term, perPage: 30, includeHidden: true, sort: 'yangi' }).then((r) =>
-          isId ? { ...r, rows: r.rows.filter((v) => v.id === Number(term)) } : r,
-        )
-      : Promise.resolve(null),
+    !term
+      ? Promise.resolve(null)
+      : isId
+        ? getVacancy(Number(term)).then((v) => ({ rows: v ? [v] : [], total: v ? 1 : 0 }))
+        : searchVacancies({ q: term, perPage: 30, includeHidden: true, sort: 'yangi' }),
     getHiddenVacancies(100),
   ]);
 
@@ -46,11 +49,13 @@ export default async function AdminVacanciesPage({ searchParams }: { searchParam
       <table className="w-full">
         <thead>
           <tr className="border-b border-chiziq">
-            <th className={th}>ID</th>
-            <th className={th}>Lavozim / korxona</th>
-            <th className={th}>Tuman</th>
-            <th className={`${th} text-right`}>Maosh</th>
-            <th className={th} />
+            <th scope="col" className={th}>ID</th>
+            <th scope="col" className={th}>Lavozim / korxona</th>
+            <th scope="col" className={th}>Tuman</th>
+            <th scope="col" className={`${th} text-right`}>Maosh</th>
+            <th scope="col" className={th}>
+              <span className="sr-only">Amal</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -69,6 +74,7 @@ export default async function AdminVacanciesPage({ searchParams }: { searchParam
           <input
             name="q"
             defaultValue={q}
+            aria-label="Vakansiya ID yoki lavozim/korxona"
             placeholder="masalan: 36401 yoki qorovul"
             className="min-w-0 flex-1 rounded-karta border border-chiziq bg-yuza px-4 py-2.5 text-sm text-matn outline-none focus:border-chinni"
           />

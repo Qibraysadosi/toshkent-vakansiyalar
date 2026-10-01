@@ -19,7 +19,8 @@ Hammasi `portal/` ichidan ishga tushiriladi.
 | `npm run import:dry -- data/fayl.xlsx` | Faqat hisobot, bazaga yozmaydi |
 | `npm run dev` | Dev server — http://localhost:3000 |
 | `npm run build` | Production build (deploydan oldin tekshiring) |
-| `npm test` | Vitest — normalize, transliterate, import qoidalari (50 test) |
+| `npm test` | Vitest — normalize, transliterate, format, import qoidalari |
+| `npm run lint` | ESLint 9 flat config (`eslint.config.mjs`: next/core-web-vitals + typescript) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run enrich:probe` | 6-bosqich: boyitish manbalari javob beradimi |
 | `npm run enrich -- --limit 50` | Korxonalarni boyitish (1 req/sek) |
@@ -33,10 +34,22 @@ Hammasi `portal/` ichidan ishga tushiriladi.
 | O'zgaruvchi | Izoh |
 | --- | --- |
 | `DATABASE_URL` | Postgres ulanish satri. Lokal yoki Supabase — bir xil ishlaydi |
-| `NEXT_PUBLIC_SITE_URL` | Kanonik manzil (sitemap, robots, OG rasmlar, bot havolalari) |
+| `NEXT_PUBLIC_SITE_URL` | Kanonik manzil (sitemap, robots, OG rasmlar, bot havolalari). Vercel'da bo'sh qoldirsa bo'ladi — `VERCEL_PROJECT_PRODUCTION_URL` olinadi |
 | `ADMIN_PASSWORD` | `/admin` paroli. **Bo'sh bo'lsa admin panel butunlay yopiq** |
 | `TG_BOT_TOKEN` | Telegram bot tokeni (@BotFather). Bo'sh bo'lsa bot va bildirishnoma o'chiq |
 | `TG_WEBHOOK_SECRET` | Webhook'ni begona POST'lardan himoya qiladi — istalgan uzun tasodifiy satr |
+
+`DATABASE_URL` bo'lmasa `layout.tsx` sahifa o'rniga `SetupNotice` (sozlash
+yo'riqnomasi) ko'rsatadi — `dbConfigured()` (`env.ts`). Build bazasiz ham o'tadi.
+
+## Bulutli sessiya (Claude Code web / telefon)
+
+Repo ildizidagi `.claude/hooks/session-start.sh` (SessionStart hook, faqat
+`CLAUDE_CODE_REMOTE=true` da) Postgres 16 ni ishga tushiradi, `vak`/`vakansiyalar`
+ni yaratadi, `schema.sql` ni qo'llaydi, `.env.local` yozadi, `npm install` qiladi
+va baza bo'sh bo'lsa `data/seed/*.xlsx` ni import qiladi. Muhitda `DATABASE_URL`
+bo'lsa (secret) `.env.local` shuni oladi. Lokal tekshiruv uchun sun'iy fayl
+`data/demo.xlsx` (gitignore) — haqiqiy ma'lumot emas.
 
 ## Baza qatlami — nega supabase-js emas
 
@@ -89,6 +102,12 @@ shuning uchun jadval).
 - **Tuman filtri** har doim `vacancies.district` bo'yicha.
 - **SQL faqat `src/lib/queries.ts` da**, qiymatlar faqat `$1, $2` orqali.
   Ommaviy so'rovlar `not is_hidden` bilan; admin `includeHidden: true` beradi.
+- **Qidiruv loglari**: `search_logs.query` — foydalanuvchi yozgani, `query_norm` —
+  kalit. `logSearch(qRaw, qNorm, n)` faqat 1-sahifa, standart saralash va robot
+  bo'lmagan so'rovlarda, `after()` ichida chaqiriladi. Ekranga `getTopSearches().label`
+  chiqadi — **normalize kalitini hech qachon transliterate qilmang** (apostroflar
+  yo'q: `oqituvchi` → `оқитувчи` noto'g'ri).
+- **Raqamlar**: `formatNumber()` guruhlarni U+00A0 bilan ajratadi, `.raqam` `nowrap`.
 - Interfeys matni o'zbekcha, "siz"da. Har komponentda `TEXT = { lat, cyr }`.
 
 ## Dizayn-tizim (PLAN §5) + mavzu

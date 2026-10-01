@@ -98,6 +98,17 @@ describe('parseDate', () => {
     expect(parseDate('foo')).toBeNull();
     expect(parseDate('45.13.2026')).toBeNull();
   });
+
+  it('kalendarda mavjud bo\'lmagan sanani rad etadi (Postgres `date` yiqilmasin)', () => {
+    expect(parseDate('31.04.2026')).toBeNull();
+    expect(parseDate('30.02.2026')).toBeNull();
+    expect(parseDate('29.02.2025')).toBeNull();
+    expect(parseDate('2026-04-31')).toBeNull();
+    expect(parseDate('2026-02-30')).toBeNull();
+    expect(parseDate('2026-13-45')).toBeNull();
+    expect(parseDate('29.02.2024')).toBe('2024-02-29'); // kabisa yili saqlanadi
+    expect(parseDate('2024-02-29')).toBe('2024-02-29');
+  });
 });
 
 describe('parseStavka / parsePhone', () => {
@@ -223,6 +234,19 @@ describe('transformRows', () => {
       "Lavozim bo'sh",
       "Tuman bo'sh",
     ]);
+  });
+
+  it("noto'g'ri sana qatorni tashlamaydi — bo'sh qoladi, hisobotda ko'rinadi", () => {
+    const { vacancies, report } = transformRows(
+      [row({ posted_date: '31.04.2026' }), row({ posted_date: null, position: 'B' })],
+      HEADER,
+      'b1',
+    );
+    expect(vacancies).toHaveLength(2);
+    expect(vacancies.every((v) => v.posted_date === null)).toBe(true);
+    expect(report.skipped).toBe(0);
+    // Bo'sh katak xato emas, faqat tushunarsiz qiymat xato
+    expect(report.errors).toEqual([{ row: 2, reason: "Sana noto'g'ri — bo'sh qoldirildi", value: '31.04.2026' }]);
   });
 
   it("butunlay bo'sh qatorlar jimgina tashlanadi", () => {

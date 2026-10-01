@@ -84,7 +84,7 @@ create table if not exists import_history (
 -- Keyinroq qo'shilgan ustunlar (idempotent — mavjud bazada ham ishlaydi)
 -- ---------------------------------------------------------------------------
 -- Admin noto'g'ri yozuvni saytdan yashira oladi; import uni qayta ochmaydi,
--- chunki yashirish import_batch'ga bog'liq emas (yangi batch = yangi id).
+-- chunki upsert (fingerprint bo'yicha, pastda) is_hidden'ga tegmaydi.
 alter table vacancies add column if not exists is_hidden boolean not null default false;
 -- Barqaror id: bir xil vakansiya keyingi oy ham bir xil id bilan qoladi —
 -- saqlanganlar, ulashilgan havolalar va Telegram xabarlari buzilmaydi.
@@ -97,6 +97,19 @@ alter table subscriptions add column if not exists username   text;
 alter table subscriptions add column if not exists is_active  boolean not null default true;
 alter table subscriptions add column if not exists notified_at timestamptz;
 create unique index if not exists idx_sub_chat on subscriptions (tg_chat_id);
+-- Vakansiya birinchi marta qaysi importda paydo bo'lgan. import_batch upsertda
+-- har oy yangilanadi (joriy ro'yxat), first_batch faqat INSERT'da yoziladi —
+-- Telegram bildirishnomasi "yangi"ni AYNAN shu ustundan aniqlaydi.
+-- Mavjud qatorlar bir marta joriy batch bilan to'ldiriladi (avvalgi xatti-harakat).
+alter table vacancies add column if not exists first_batch text;
+update vacancies set first_batch = import_batch where first_batch is null;
+create index if not exists idx_vac_first_batch on vacancies (first_batch);
+-- Obunachi qaysi batch uchun ko'rib chiqilgan (xabar yuborilgan yoki mos
+-- vakansiya topilmagan) — yuborish uzilsa davom etadi, tugma qayta bosilsa
+-- hech kimga ikki marta bormaydi.
+alter table subscriptions add column if not exists last_batch text;
+-- Foydalanuvchi yozgan asl kasb matni (ko'rsatish uchun; moslashtirish query_norm bo'yicha)
+alter table subscriptions add column if not exists query_text text;
 
 -- Admin paneldagi ikki bosqichli import: fayl tozalanib shu yerga vaqtincha
 -- yoziladi, admin hisobotni ko'rib tasdiqlagach bazaga o'tkaziladi.
@@ -126,6 +139,17 @@ create index if not exists idx_vac_posted     on vacancies (posted_date desc);
 create index if not exists idx_comp_name_trgm on companies using gin (name_search gin_trgm_ops);
 create index if not exists idx_logs_created   on search_logs (created_at desc);
 
+-- Qidiruv loglari: foydalanuvchi yozgan asl so'rov (chiplar shuni ko'rsatadi),
+-- query_norm — qidiruv kaliti; uzunlik cheklovi (normalize kirillni 2x uzaytirishi mumkin)
+alter table search_logs add column if not exists query text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'search_logs_query_norm_len') then
+    update search_logs set query_norm = left(query_norm, 200) where length(query_norm) > 200;
+    alter table search_logs add constraint search_logs_query_norm_len check (length(query_norm) <= 200);
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- RLS — Supabase jadvallarni anon kalit bilan PostgREST orqali ochib qo'yadi.
 -- Shuning uchun RLS yoqiladi va faqat ochiq ma'lumotga o'qish ruxsati beriladi.
@@ -154,8 +178,10 @@ alter table import_history enable row level security;
 drop policy if exists "public read companies" on companies;
 create policy "public read companies" on companies for select to anon, authenticated using (true);
 
+-- Yashirilgan vakansiyalar PostgREST orqali ham ko'rinmasin (sayt `not is_hidden`
+-- bilan so'raydi; `pg` ulanishi jadval egasi sifatida RLS'ga tobe emas).
 drop policy if exists "public read vacancies" on vacancies;
-create policy "public read vacancies" on vacancies for select to anon, authenticated using (true);
+create policy "public read vacancies" on vacancies for select to anon, authenticated using (not is_hidden);
 
 drop policy if exists "public read synonyms" on synonyms;
 create policy "public read synonyms" on synonyms for select to anon, authenticated using (true);

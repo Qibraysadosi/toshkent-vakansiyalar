@@ -3,13 +3,21 @@
 import { transliterate } from './transliterate';
 import type { Script } from './transliterate';
 
-/** 2500000 → "2 500 000" (o'zbekcha ajratuvchi — bo'shliq). */
+/**
+ * Guruh ajratuvchi — buzilmas bo'shliq (U+00A0). Oddiy bo'shliq bo'lsa raqam
+ * satr o'rtasida ikkiga bo'linib ketadi; U+202F (tor NBSP) esa sayt
+ * shriftlarida yo'q — ustunlar tekisligi buziladi.
+ */
+export const NBSP = '\u00a0';
+
+/** 2500000 → "2 500 000" (o'zbekcha ajratuvchi — buzilmas bo'shliq). */
 export function formatNumber(n: number | string | null | undefined): string {
   if (n === null || n === undefined || n === '') return '';
   const num = typeof n === 'string' ? Number.parseFloat(n) : n;
   if (!Number.isFinite(num)) return '';
   const rounded = Math.round(num);
-  return rounded.toLocaleString('ru-RU').replace(/ /g, ' ');
+  // ICU versiyasiga qarab ajratuvchi U+00A0 yoki U+202F bo'lishi mumkin — bittaga keltiramiz
+  return rounded.toLocaleString('ru-RU').replace(/\s/g, NBSP);
 }
 
 /** Maosh yoki izoh. `salary` bo'lmasa `salary_note` qaytadi. */

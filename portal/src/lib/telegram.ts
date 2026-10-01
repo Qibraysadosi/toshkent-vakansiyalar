@@ -9,6 +9,7 @@ import {
   deactivateSubscription,
   getSubscription,
   upsertSubscription,
+  type Subscription,
   type VacancyListItem,
 } from './queries';
 
@@ -27,6 +28,15 @@ export function botConfigured(): boolean {
   return Boolean(process.env.TG_BOT_TOKEN);
 }
 
+/**
+ * Webhook kiruvchi yangilanishlarni qabul qila oladimi: token HAM secret
+ * o'rnatilgan bo'lishi shart (`/api/telegram` secret'siz 503 qaytaradi).
+ * Chiquvchi xabarlar (bildirishnoma) uchun faqat `botConfigured()` yetarli.
+ */
+export function webhookConfigured(): boolean {
+  return botConfigured() && Boolean(process.env.TG_WEBHOOK_SECRET);
+}
+
 function token(): string {
   const t = process.env.TG_BOT_TOKEN;
   if (!t) throw new Error("TG_BOT_TOKEN o'rnatilmagan.");
@@ -39,7 +49,17 @@ declare global {
 }
 
 const nf = new Intl.NumberFormat('ru-RU');
-const esc = (s: string) => s.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c] ?? c);
+/** HTML parse_mode uchun qochirish — foydalanuvchi/DB matni SHU orqali o'tishi shart. */
+export const esc = (s: string) => s.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c] ?? c);
+
+/**
+ * Obunachiga ko'rsatiladigan kasb nomi: foydalanuvchi yozgan asl matn (lotinda),
+ * u saqlanmagan eski obunalarda — normalize'langan kalit.
+ */
+export function subscriptionLabel(sub: Pick<Subscription, 'query_norm' | 'query_text'>): string | null {
+  if (sub.query_text) return transliterate(sub.query_text, 'lat');
+  return sub.query_norm;
+}
 
 /** Bitta vakansiya — HTML formatida qisqa karta. */
 export function formatVacancyMessage(v: VacancyListItem): string {
@@ -112,19 +132,31 @@ export function createBot(): Bot {
     const slug = ctx.match[1];
     const chat = ctx.chat?.id;
     if (!chat) return;
+    // Avval tugmaning "yuklanmoqda" holatini yopamiz — DB kutilmaydi (ulanish
+    // 10 s kechiksa ham foydalanuvchi osilib qolmaydi).
+    await ctx.answerCallbackQuery().catch(() => {});
+
     const sub = await getSubscription(chat);
+    // /stop dan keyin chatda qolgan eski klaviatura obunani jimgina qayta yoqmasin
+    if (!sub || !sub.is_active) {
+      await ctx.reply("Obuna to'xtatilgan. Qayta yoqish uchun /start bosing.");
+      return;
+    }
+
     const district = slug === 'hammasi' ? null : (districtBySlug(slug)?.db ?? null);
-    await upsertSubscription(chat, ctx.from.username ?? null, sub?.query_norm ?? null, district);
-    await ctx.answerCallbackQuery();
+    await upsertSubscription(chat, ctx.from.username ?? null, sub.query_norm, district, sub.query_text);
 
     const label = district ? (districtByDbName(district)?.lat ?? district) : 'barcha tumanlar';
-    await ctx.editMessageText(`Tuman: ${label}.`);
+    // Ikki marta bosilsa Telegram 400 "message is not modified" qaytaradi —
+    // obuna allaqachon saqlangan, shuning uchun tasdiq baribir yuboriladi.
+    await ctx.editMessageText(`Tuman: ${label}.`).catch(() => {});
 
-    if (sub?.query_norm) {
+    if (sub.query_norm) {
+      const kasb = subscriptionLabel(sub) ?? sub.query_norm;
       const { rows, total } = await botSearch(sub.query_norm, district, 5);
       await ctx.reply(
-        `Obuna saqlandi: <b>${esc(sub.query_norm)}</b>, ${esc(label)}. Har oy yangi vakansiyalar chiqqanda xabar beraman.\n\n` +
-          resultsText(sub.query_norm, rows, total, district),
+        `Obuna saqlandi: <b>${esc(kasb)}</b>, ${esc(label)}. Har oy yangi vakansiyalar chiqqanda xabar beraman.\n\n` +
+          resultsText(kasb, rows, total, district),
         { parse_mode: 'HTML', link_preview_options: { is_disabled: true } },
       );
     }
@@ -145,8 +177,9 @@ export function createBot(): Bot {
 
     // Obuna oqimida kasb kutilmoqda
     if (sub && sub.is_active && !sub.query_norm) {
-      await upsertSubscription(chat, ctx.from?.username ?? null, qNorm, sub.district);
-      await ctx.reply(`Kasb: <b>${esc(qNorm)}</b>. Endi tumanni tanlang:`, {
+      // query_norm — moslashtirish kaliti; asl matn ko'rsatish uchun saqlanadi
+      await upsertSubscription(chat, ctx.from?.username ?? null, qNorm, sub.district, text);
+      await ctx.reply(`Kasb: <b>${esc(transliterate(text, 'lat'))}</b>. Endi tumanni tanlang:`, {
         parse_mode: 'HTML',
         reply_markup: districtKeyboard(),
       });

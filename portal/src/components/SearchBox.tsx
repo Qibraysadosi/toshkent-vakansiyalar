@@ -50,6 +50,13 @@ export function SearchBox({
   const [active, setActive] = useState(-1);
   const boxRef = useRef<HTMLDivElement>(null);
 
+  // URL (?q=) o'zgarganda — Back/Forward, chip havolalari, "Tozalash" — inputni sinxronlash.
+  // /vakansiyalar da komponent qayta o'rnatilmaydi (faqat searchParams o'zgaradi),
+  // shuning uchun holat faqat mount'da emas, har safar yangilanishi kerak.
+  useEffect(() => {
+    setValue(defaultValue);
+  }, [defaultValue]);
+
   // Debounce 250ms (PLAN §3.3)
   useEffect(() => {
     const q = value.trim();
@@ -90,6 +97,8 @@ export function SearchBox({
   function submit(q: string) {
     setOpen(false);
     const trimmed = q.trim();
+    // Taklifdan tanlanganda input ham tanlangan matnni ko'rsatsin (yozilgan qismini emas)
+    setValue(trimmed);
     router.push(trimmed ? `/vakansiyalar?q=${encodeURIComponent(trimmed)}` : '/vakansiyalar');
   }
 
@@ -110,6 +119,9 @@ export function SearchBox({
   }
 
   const big = size === 'katta';
+  const listOpen = open && items.length > 0;
+  // aria-activedescendant uchun har bir variantning id'si
+  const optionId = (i: number) => `${listId}-${i}`;
 
   return (
     <div ref={boxRef} className="relative w-full">
@@ -120,7 +132,9 @@ export function SearchBox({
           submit(value);
         }}
         className={`flex overflow-hidden rounded-karta border bg-yuza transition-shadow ${
-          open && items.length ? 'border-chinni shadow-[0_8px_28px_-12px_rgba(19,145,165,0.45)]' : 'border-chiziq'
+          listOpen
+            ? 'border-chinni shadow-[0_8px_28px_-12px_rgba(19,145,165,0.45)]'
+            : 'border-chiziq focus-within:border-chinni'
         }`}
       >
         <input
@@ -136,10 +150,12 @@ export function SearchBox({
           onKeyDown={onKeyDown}
           placeholder={t.placeholder}
           aria-label={t.search}
+          role="combobox"
           aria-autocomplete="list"
-          aria-controls={listId}
-          aria-expanded={open && items.length > 0}
-          className={`min-w-0 flex-1 bg-transparent outline-none placeholder:text-tosh/70 ${
+          aria-controls={listOpen ? listId : undefined}
+          aria-expanded={listOpen}
+          aria-activedescendant={listOpen && active >= 0 && active < items.length ? optionId(active) : undefined}
+          className={`min-w-0 flex-1 bg-transparent outline-none placeholder:text-tosh ${
             big ? 'px-5 py-4 text-base' : 'px-4 py-2.5 text-sm'
           }`}
         />
@@ -153,10 +169,11 @@ export function SearchBox({
         </button>
       </form>
 
-      {open && items.length > 0 && (
+      {listOpen && (
         <ul
           id={listId}
           role="listbox"
+          aria-label={t.search}
           className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-karta border border-chiziq bg-yuza shadow-[0_12px_34px_-14px_rgba(16,35,58,0.35)]"
         >
           {items.map((item, i) => {
@@ -165,20 +182,22 @@ export function SearchBox({
             // kalitga tushgani uchun qidiruv natijasi o'zgarmaydi.
             const label = transliterate(item.label, script);
             return (
-            <li key={item.position_search} role="option" aria-selected={i === active}>
-              <button
-                type="button"
-                onMouseEnter={() => setActive(i)}
-                onClick={() => submit(label)}
-                className={`flex w-full items-center justify-between gap-4 px-4 py-2.5 text-left text-sm transition-colors ${
-                  i === active ? 'bg-chinni/8 text-chinni' : 'hover:bg-fon'
-                }`}
-              >
-                <span className="line-clamp-1">{label}</span>
-                <span className="raqam shrink-0 text-xs text-tosh">
-                  {item.positions} {t.hint}
-                </span>
-              </button>
+            <li
+              key={item.position_search}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === active}
+              onMouseEnter={() => setActive(i)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => submit(label)}
+              className={`flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-2.5 text-left text-sm transition-colors ${
+                i === active ? 'bg-chinni/8 text-chinni' : 'hover:bg-fon'
+              }`}
+            >
+              <span className="line-clamp-1">{label}</span>
+              <span className="raqam shrink-0 text-xs text-tosh">
+                {item.positions} {t.hint}
+              </span>
             </li>
             );
           })}

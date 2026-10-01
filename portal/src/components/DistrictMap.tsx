@@ -44,7 +44,7 @@ export function DistrictMap({
         <svg
           viewBox="0 0 1000 780"
           className="h-auto w-full"
-          role="img"
+          role="group"
           aria-label={script === 'cyr' ? 'Тошкент туманлари харитаси' : 'Toshkent tumanlari xaritasi'}
         >
           {DISTRICTS.map((d) => {

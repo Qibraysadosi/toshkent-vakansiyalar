@@ -15,7 +15,9 @@ import type { PoolClient } from 'pg';
  */
 
 const CHUNK = 1000;
-type VacancyInsert = Omit<VacancyRow, 'id' | 'views' | 'is_hidden'>;
+// first_batch ixtiyoriy: deploydan oldin `import_staging` ga yozilgan payloadlarda
+// yo'q — o'shanda import_batch olinadi (ikkalasi ham shu importning nomi).
+type VacancyInsert = Omit<VacancyRow, 'id' | 'views' | 'is_hidden'> & { first_batch?: string };
 
 export interface StagedImport {
   token: string;
@@ -77,8 +79,12 @@ const COMPANY_COLS = ['stir', 'name', 'name_search', 'phone', 'district'] as con
 const VACANCY_COLS = [
   'stir', 'district', 'department', 'position', 'position_search', 'posted_date',
   'stavka', 'salary', 'salary_note', 'education', 'quota', 'positions_count', 'import_batch',
-  'fingerprint',
+  'first_batch', 'fingerprint',
 ] as const;
+
+function vacancyValue(v: VacancyInsert, col: (typeof VACANCY_COLS)[number]): unknown {
+  return col === 'first_batch' ? (v.first_batch ?? v.import_batch) : v[col];
+}
 
 export async function writeImport(
   client: PoolClient,
@@ -105,6 +111,8 @@ export async function writeImport(
   // 2) vacancies — fingerprint bo'yicha upsert: o'tgan oydan qolgan vakansiya
   //    o'z id'sini, ko'rishlar sonini va "yashirilgan" holatini saqlab qoladi;
   //    faqat sana, o'rin soni va batch yangilanadi. Yangilari qo'shiladi.
+  //    `first_batch` DO UPDATE ro'yxatida YO'Q — faqat INSERT'da yoziladi,
+  //    Telegram bildirishnomasi "yangi"ni shu ustundan aniqlaydi.
   //    Tegilgan id'lar yig'iladi — 3-qadamda faqat ular qoladi.
   const touched: number[] = [];
   for (let i = 0; i < vacancies.length; i += CHUNK) {
@@ -118,7 +126,7 @@ export async function writeImport(
          position_search = excluded.position_search,
          import_batch = excluded.import_batch
        returning id`,
-      slice.flatMap((v) => VACANCY_COLS.map((k) => v[k])),
+      slice.flatMap((v) => VACANCY_COLS.map((k) => vacancyValue(v, k))),
     );
     for (const r of res.rows) touched.push(Number(r.id));
     onProgress?.(`vacancies ${Math.min(i + CHUNK, vacancies.length)}/${vacancies.length}`);

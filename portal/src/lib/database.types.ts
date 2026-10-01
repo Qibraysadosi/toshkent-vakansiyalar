@@ -1,6 +1,12 @@
 /**
- * Jadval qatorlari turlari — `supabase/schema.sql` bilan qo'lda mos yuritiladi.
- * Sxema o'zgarsa, shu fayl ham yangilanadi.
+ * Jadval qatorlari turlari — `supabase/schema.sql` bilan qo'lda mos yuritiladi
+ * (xom jadval qatori, ustunlar sxemadagi tartibda). Sxema o'zgarsa, shu fayl
+ * ham yangilanadi.
+ *
+ * `queries.ts` dagi natija turlari (masalan, `SearchLogRow` — agregat,
+ * `Subscription` — `tg_chat_id` bo'sh bo'lmagan ko'rinish) bu yerdagi xom
+ * qatorlardan farq qiladi; nom to'qnashmasligi uchun xom jadval turlari
+ * `...TableRow` deb ataladi.
  *
  * Eslatma: qiymatlar `pg` drayveridan kelganda `numeric` ustunlar STRING
  * bo'lib keladi (aniqlik yo'qolmasligi uchun) — `queries.ts` da Number() bilan
@@ -39,6 +45,8 @@ export type VacancyRow = {
   import_batch: string;
   is_hidden: boolean;
   fingerprint: string;
+  // `first_batch text` ustuni ham bor (faqat INSERT'da yoziladi) — import
+  // kiritish turi `import-run.ts` da ixtiyoriy qilib qo'shiladi.
 }
 
 export type SynonymRow = {
@@ -46,11 +54,14 @@ export type SynonymRow = {
   canonical: string;
 }
 
-export type SearchLogRow = {
+/** Xom `search_logs` qatori (`queries.ts` dagi `SearchLogRow` — agregat, boshqa shakl). */
+export type SearchLogTableRow = {
   id: number;
   query_norm: string | null;
   results_count: number | null;
   created_at: string;
+  /** Foydalanuvchi yozgan asl so'rov */
+  query: string | null;
 }
 
 export type SubscriptionRow = {
@@ -59,12 +70,30 @@ export type SubscriptionRow = {
   query_norm: string | null;
   district: string | null;
   created_at: string;
+  username: string | null;
+  is_active: boolean;
+  notified_at: string | null;
+  /** Oxirgi ko'rib chiqilgan import batch */
+  last_batch: string | null;
+  /** Foydalanuvchi yozgan asl kasb matni */
+  query_text: string | null;
 }
 
-export type ImportHistoryRow = {
+/** Xom `import_history` qatori (`queries.ts` dagi `ImportHistoryEntry` bilan bir xil shakl). */
+export type ImportHistoryTableRow = {
   batch: string;
   rows_read: number | null;
   rows_merged: number | null;
   errors: unknown;
+  created_at: string;
+}
+
+/** Admin importining ikki bosqichli oraliq jadvali. */
+export type ImportStagingRow = {
+  token: string;
+  batch: string;
+  /** { companies: CompanyRow[]; vacancies: [...] } */
+  payload: unknown;
+  report: unknown;
   created_at: string;
 }

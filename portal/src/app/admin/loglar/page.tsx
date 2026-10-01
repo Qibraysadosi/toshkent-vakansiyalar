@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSearchLogSummary } from '@/lib/queries';
-import { Card, Empty, TableWrap, td, th } from '../ui';
+import { Card, Empty, TableWrap, td, th, xato } from '../ui';
 
 export const metadata = { title: 'Qidiruv loglari' };
 
@@ -21,10 +21,10 @@ export default async function AdminLogsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-chiziq">
-                <th className={th}>So&apos;rov</th>
-                <th className={`${th} text-right`}>Marta</th>
-                <th className={`${th} text-right`}>Natija</th>
-                <th className={`${th} text-right`}>Oxirgi</th>
+                <th scope="col" className={th}>So&apos;rov</th>
+                <th scope="col" className={`${th} text-right`}>Marta</th>
+                <th scope="col" className={`${th} text-right`}>Natija</th>
+                <th scope="col" className={`${th} text-right`}>Oxirgi</th>
               </tr>
             </thead>
             <tbody>
@@ -42,7 +42,7 @@ export default async function AdminLogsPage() {
                     )}
                   </td>
                   <td className={`${td} raqam text-right`}>{l.hits}</td>
-                  <td className={`${td} raqam text-right ${l.results_count === 0 ? 'text-[#b3453f]' : 'text-tosh'}`}>{l.results_count}</td>
+                  <td className={`${td} raqam text-right ${l.results_count === 0 ? xato : 'text-tosh'}`}>{l.results_count}</td>
                   <td className={`${td} text-right text-xs text-tosh whitespace-nowrap`}>{new Date(l.last_at).toLocaleDateString('ru-RU')}</td>
                 </tr>
               ))}

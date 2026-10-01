@@ -63,13 +63,16 @@ export function SavedList({ script }: { script: Script }) {
 
   if (!ready || rows === null) {
     return (
-      <ul className="grid gap-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <li key={i}>
-            <VacancyCardSkeleton />
-          </li>
-        ))}
-      </ul>
+      <div role="status" aria-busy="true">
+        <span className="sr-only">{cyr ? 'Юкланмоқда…' : 'Yuklanmoqda…'}</span>
+        <ul className="grid gap-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <li key={i}>
+              <VacancyCardSkeleton />
+            </li>
+          ))}
+        </ul>
+      </div>
     );
   }
 
@@ -84,7 +87,7 @@ export function SavedList({ script }: { script: Script }) {
         </p>
         <Link
           href="/vakansiyalar"
-          className="mt-6 inline-block rounded-full bg-chinni px-5 py-2 text-xs font-500 text-white transition-colors hover:bg-chinni-toq"
+          className="mt-6 inline-block rounded-full bg-chinni px-5 py-2 text-xs font-500 text-chinni-ustida transition-colors hover:bg-chinni-toq"
         >
           {cyr ? 'Вакансияларга ўтиш' : "Vakansiyalarga o'tish"}
         </Link>

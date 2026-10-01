@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { xato } from './ui';
 import {
   addSynonymAction,
   confirmImportAction,
@@ -16,6 +17,9 @@ import {
 } from './actions';
 
 const EMPTY: ActionState = {};
+// actions.ts dagi MAX_UPLOAD_MB bilan bir xil (Vercel 4.5 MB so'rov chegarasi).
+const MAX_UPLOAD_MB = 4;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const nf = new Intl.NumberFormat('ru-RU');
 const fmt = (n: number | null | undefined) => (n === null || n === undefined ? '—' : nf.format(n).replace(/ /g, ' '));
 
@@ -85,8 +89,10 @@ function ReportTable({ r }: { r: NonNullable<ImportPreviewState['report']> }) {
       <tbody>
         {rows.map(([k, v, tone]) => (
           <tr key={k} className="border-b border-chiziq last:border-0">
-            <td className="py-1.5 pr-4 text-tosh">{k}</td>
-            <td className={`raqam py-1.5 text-right ${tone === 'xato' ? 'text-[#b3453f]' : tone === 'kuchli' ? 'text-chinni' : ''}`}>{v}</td>
+            <th scope="row" className="py-1.5 pr-4 text-left font-normal text-tosh">
+              {k}
+            </th>
+            <td className={`raqam py-1.5 text-right ${tone === 'xato' ? xato : tone === 'kuchli' ? 'text-chinni' : ''}`}>{v}</td>
           </tr>
         ))}
       </tbody>
@@ -98,6 +104,9 @@ export function ImportWizard({ lastBatch }: { lastBatch: string | null }) {
   const [preview, previewAction, previewing] = useActionState(previewImportAction, {} as ImportPreviewState);
   const [confirm, confirmAction, confirming] = useActionState(confirmImportAction, {} as ImportPreviewState);
   const [, discardAction, discarding] = useActionState(discardImportAction, {} as ImportPreviewState);
+  // Mijoz tomonidagi hajm tekshiruvi: Vercel 4.5 MB dan katta so'rovni action'gacha
+  // yetkazmay 413 qaytaradi — shuning uchun xabarni yuborishdan OLDIN ko'rsatamiz.
+  const [sizeError, setSizeError] = useState<string | null>(null);
 
   // Tasdiqlangan → yakuniy xabar
   if (confirm.done) {
@@ -182,7 +191,21 @@ export function ImportWizard({ lastBatch }: { lastBatch: string | null }) {
   })();
 
   return (
-    <form action={previewAction}>
+    <form
+      action={previewAction}
+      onSubmit={(e) => {
+        const file = (e.currentTarget.elements.namedItem('file') as HTMLInputElement | null)?.files?.[0];
+        if (file && file.size > MAX_UPLOAD_BYTES) {
+          e.preventDefault();
+          setSizeError(
+            `Fayl juda katta (${(file.size / 1024 / 1024).toFixed(1)} MB; ${MAX_UPLOAD_MB} MB dan oshmasin — Vercel chegarasi). ` +
+              'Kattaroq fayl uchun `npm run import` ishlating.',
+          );
+        } else {
+          setSizeError(null);
+        }
+      }}
+    >
       <p className="text-xs text-tosh">
         Fayl avval tozalanib hisobot ko&apos;rsatiladi; bazaga faqat siz tasdiqlagandan keyin yoziladi.
         {lastBatch && (
@@ -216,7 +239,7 @@ export function ImportWizard({ lastBatch }: { lastBatch: string | null }) {
       <button type="submit" disabled={previewing} className={`${primary} mt-4`}>
         {previewing ? "O'qilmoqda…" : "Oldindan ko'rish"}
       </button>
-      <Message state={preview} />
+      <Message state={sizeError ? { error: sizeError } : preview} />
     </form>
   );
 }
@@ -264,6 +287,7 @@ export function SynonymChip({ term, canonical }: { term: string; canonical: stri
         className="flex items-center gap-1.5 rounded-full border border-chiziq bg-yuza py-1 pl-3 pr-2 text-xs text-tosh transition-colors hover:border-[#d9a4a4] hover:text-[#b3453f]"
       >
         {term} → {canonical}
+        <span className="sr-only">O&apos;chirish</span>
         <span aria-hidden className="text-sm leading-none">×</span>
       </button>
     </form>

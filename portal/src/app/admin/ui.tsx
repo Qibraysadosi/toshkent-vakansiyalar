@@ -18,19 +18,30 @@ export function Card({ title, lead, action, children }: { title: string; lead?: 
   );
 }
 
+/**
+ * KPI kartasi — `<dl>` ning bevosita farzandi. `<dl>` faqat dt/dd/div qabul
+ * qiladi va dt dd'dan oldin kelishi shart, shuning uchun havola karta atrofida
+ * emas, atama ichida (`after:inset-0` bilan butun kartaga cho'zilgan);
+ * vizual tartib (qiymat tepada) `flex-col-reverse` bilan.
+ */
 export function Stat({ label, value, href }: { label: string; value: string; href?: string }) {
-  const body = (
-    <>
+  return (
+    <div
+      className={`relative flex flex-col-reverse rounded-karta border border-chiziq bg-yuza p-4 ${
+        href ? 'transition-colors hover:border-chinni' : ''
+      }`}
+    >
+      <dt className="mt-0.5 text-xs text-tosh">
+        {href ? (
+          <Link href={href} className="after:absolute after:inset-0 hover:text-chinni">
+            {label}
+          </Link>
+        ) : (
+          label
+        )}
+      </dt>
       <dd className="font-display text-lg font-600 text-matn">{value}</dd>
-      <dt className="mt-0.5 text-xs text-tosh">{label}</dt>
-    </>
-  );
-  return href ? (
-    <Link href={href} className="block rounded-karta border border-chiziq bg-yuza p-4 transition-colors hover:border-chinni">
-      {body}
-    </Link>
-  ) : (
-    <div className="rounded-karta border border-chiziq bg-yuza p-4">{body}</div>
+    </div>
   );
 }
 
@@ -63,3 +74,13 @@ export function TableWrap({ children }: { children: React.ReactNode }) {
 
 export const th = 'py-2 pr-4 text-left text-xs font-500 text-tosh whitespace-nowrap';
 export const td = 'py-2 pr-4 text-sm align-top';
+/** Kalit–qiymat jadvalida qator sarlavhasi (`<th scope="row">`) — ko'rinishi oddiy katak kabi. */
+export const thRow = `${td} text-left font-normal text-tosh`;
+
+/**
+ * Xato/ogohlantirish matni rangi. Tungi rejimda `color-scheme: dark` bo'ladi
+ * (globals.css, ikkala yo'l ham), shuning uchun `light-dark()` mavzuga ergashadi.
+ * globals.css ga `--xato` tokeni (`--color-xato`) qo'shilgach shunchaki
+ * `text-xato` ga almashtiriladi — var() birinchi o'rinda shuning uchun.
+ */
+export const xato = 'text-[color:var(--xato,light-dark(#b3453f,#f28b82))]';

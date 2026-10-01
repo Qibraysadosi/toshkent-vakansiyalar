@@ -1,7 +1,7 @@
 import { getImportHistory } from '@/lib/queries';
 import { formatNumber } from '@/lib/format';
 import { ImportWizard } from '../forms';
-import { Card, Empty, TableWrap, td, th } from '../ui';
+import { Card, Empty, TableWrap, td, th, xato } from '../ui';
 
 export const metadata = { title: 'Import' };
 // Vercel: import (tozalash + 12 ming qator yozish) 10 soniyalik standart
@@ -26,12 +26,12 @@ export default async function AdminImportPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-chiziq">
-                  <th className={th}>Batch</th>
-                  <th className={`${th} text-right`}>O&apos;qildi</th>
-                  <th className={`${th} text-right`}>Saqlandi</th>
-                  <th className={`${th} text-right`}>Takror</th>
-                  <th className={`${th} text-right`}>Xato</th>
-                  <th className={`${th} text-right`}>Sana</th>
+                  <th scope="col" className={th}>Batch</th>
+                  <th scope="col" className={`${th} text-right`}>O&apos;qildi</th>
+                  <th scope="col" className={`${th} text-right`}>Saqlandi</th>
+                  <th scope="col" className={`${th} text-right`}>Takror</th>
+                  <th scope="col" className={`${th} text-right`}>Xato</th>
+                  <th scope="col" className={`${th} text-right`}>Sana</th>
                 </tr>
               </thead>
               <tbody>
@@ -43,7 +43,7 @@ export default async function AdminImportPage() {
                       <td className={`${td} raqam text-right`}>{formatNumber(h.rows_read)}</td>
                       <td className={`${td} raqam text-right`}>{formatNumber(h.rows_merged)}</td>
                       <td className={`${td} raqam text-right text-tosh`}>{formatNumber(e.duplicatesMerged ?? 0)}</td>
-                      <td className={`${td} raqam text-right ${e.rows?.length ? 'text-[#b3453f]' : 'text-tosh'}`}>{e.rows?.length ?? 0}</td>
+                      <td className={`${td} raqam text-right ${e.rows?.length ? xato : 'text-tosh'}`}>{e.rows?.length ?? 0}</td>
                       <td className={`${td} text-right text-xs text-tosh whitespace-nowrap`}>{new Date(h.created_at).toLocaleString('ru-RU')}</td>
                     </tr>
                   );

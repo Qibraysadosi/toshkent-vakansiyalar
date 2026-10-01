@@ -11,18 +11,13 @@
 export type Script = 'lat' | 'cyr';
 
 // ---------------------------------------------------------------------------
-// Kirill → lotin
+// Umumiy
 // ---------------------------------------------------------------------------
 
-const CYR_TO_LAT: Record<string, string> = {
-  а: 'a', б: 'b', в: 'v', г: 'g', ғ: "g'", д: 'd', е: 'e', ё: 'yo', ж: 'j',
-  з: 'z', и: 'i', й: 'y', к: 'k', қ: 'q', л: 'l', м: 'm', н: 'n', о: 'o',
-  ў: "o'", п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'x', ҳ: 'h',
-  ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sh', ъ: "'", ы: 'i', ь: '', э: 'e',
-  ю: 'yu', я: 'ya',
-};
+/** Apostrof variantlari — `normalize.ts` dagi APOSTROPHES bilan bir xil to'plam. */
+const APOSTROPHE_CHARS = "'‘’‚‛ʻʼʽʹʺ`´′‵";
+const APOSTROPHE = new RegExp(`[${APOSTROPHE_CHARS}]`);
 
-const YE_AFTER = new Set(['а', 'е', 'ё', 'и', 'о', 'у', 'ў', 'э', 'ю', 'я', 'ъ', 'ь']);
 const LETTER = /[\p{L}\p{N}]/u;
 
 function isUpper(ch: string): boolean {
@@ -36,6 +31,34 @@ function applyCase(mapped: string, sourceUpper: boolean, nextUpper: boolean): st
   return mapped[0].toUpperCase() + mapped.slice(1);
 }
 
+/**
+ * Ko'p harfli birikma (Ц → ts, Я → ya, yo' → йў) uchun "atrof katta harfdami?" belgisi:
+ * keyingi harf bo'lsa unga, so'z oxirida (keyingi harf yo'q) oldingi harfga qaraymiz —
+ * "ЛАБОРАТОРИЯ" → "LABORATORIYA", "Лаборатория" → "Laboratoriya".
+ * `start..end` — hozir o'girilayotgan belgilar oralig'i.
+ */
+function contextUpper(src: string, start: number, end: number): boolean {
+  const next = src[end];
+  if (next !== undefined && LETTER.test(next)) return isUpper(next);
+  const prev = start > 0 ? src[start - 1] : undefined;
+  if (prev !== undefined && LETTER.test(prev)) return isUpper(prev);
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Kirill → lotin
+// ---------------------------------------------------------------------------
+
+const CYR_TO_LAT: Record<string, string> = {
+  а: 'a', б: 'b', в: 'v', г: 'g', ғ: "g'", д: 'd', е: 'e', ё: 'yo', ж: 'j',
+  з: 'z', и: 'i', й: 'y', к: 'k', қ: 'q', л: 'l', м: 'm', н: 'n', о: 'o',
+  ў: "o'", п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'x', ҳ: 'h',
+  ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sh', ъ: "'", ы: 'i', ь: '', э: 'e',
+  ю: 'yu', я: 'ya',
+};
+
+const YE_AFTER = new Set(['а', 'е', 'ё', 'и', 'о', 'у', 'ў', 'э', 'ю', 'я', 'ъ', 'ь']);
+
 function cyrillicToLatin(input: string): string {
   const src = input.normalize('NFC');
   let out = '';
@@ -44,14 +67,7 @@ function cyrillicToLatin(input: string): string {
     const ch = src[i];
     const lower = ch.toLowerCase();
     const upper = isUpper(ch);
-
-    // Keyingi harf katta-kichikligini aniqlash (Ц/Ч/Ш kabi digraflar uchun)
-    let nextUpper = false;
-    for (let j = i + 1; j < src.length; j++) {
-      if (!LETTER.test(src[j])) break;
-      nextUpper = isUpper(src[j]);
-      break;
-    }
+    const nextUpper = contextUpper(src, i, i + 1);
 
     if (lower === 'е') {
       const prev = i === 0 ? '' : src[i - 1].toLowerCase();
@@ -70,38 +86,55 @@ function cyrillicToLatin(input: string): string {
 // Lotin → kirill
 // ---------------------------------------------------------------------------
 
-/** Uzunroq mos keladigan birikma avval tekshiriladi. */
+/**
+ * Uzunroq mos keladigan birikma avval tekshiriladi. Apostrofli birikmalar (o', g', yo')
+ * APOSTROPHE_CHARS dan yasaladi — shunda "oʼ"/"o´" ham ў bo'ladi, "yo'q" esa ё+ъ emas, йў+қ.
+ */
 const LAT_TO_CYR: [string, string][] = [
-  ["o'", 'ў'], ['oʻ', 'ў'], ['o‘', 'ў'], ['o’', 'ў'], ['o`', 'ў'],
-  ["g'", 'ғ'], ['gʻ', 'ғ'], ['g‘', 'ғ'], ['g’', 'ғ'], ['g`', 'ғ'],
+  ...[...APOSTROPHE_CHARS].flatMap((a): [string, string][] => [
+    [`yo${a}`, 'йў'], [`o${a}`, 'ў'], [`g${a}`, 'ғ'],
+  ]),
   ['sh', 'ш'], ['ch', 'ч'], ['ts', 'ц'],
   ['yo', 'ё'], ['yu', 'ю'], ['ya', 'я'], ['ye', 'е'],
   ['a', 'а'], ['b', 'б'], ['v', 'в'], ['g', 'г'], ['d', 'д'],
   ['j', 'ж'], ['z', 'з'], ['i', 'и'], ['y', 'й'], ['k', 'к'],
   ['q', 'қ'], ['l', 'л'], ['m', 'м'], ['n', 'н'], ['o', 'о'],
   ['p', 'п'], ['r', 'р'], ['s', 'с'], ['t', 'т'], ['u', 'у'],
-  ['f', 'ф'], ['x', 'х'], ['h', 'ҳ'], ['c', 'с'], ['w', 'в'],
+  ['f', 'ф'], ['x', 'х'], ['h', 'ҳ'],
 ];
 
-const APOSTROPHE = /['‘’ʻʼ`´]/;
+/**
+ * "ts" odatda ц (litsenziya, protsess, sotsial), lekin so'z oxiridagi o'zbekcha
+ * qo'shimcha chegarasida (ket-sa, ayt-sang, ot-siz) — т + с.
+ */
+const NATIVE_TS_SUFFIX = /^t(?:sa|sam|sang|sangiz|sak|salar|sin|sinlar|siz|sizlik|sizlar)(?![\p{L}\p{N}])/u;
 
-function latinToCyrillic(input: string): string {
-  const src = input.normalize('NFC');
+/** O'zbek lotin alifbosida yo'q harf: w, yoki "ch" tarkibida bo'lmagan c (Coca-Cola, Windows). */
+const FOREIGN_LATIN = /w|c(?!h)/i;
+
+function latinWordToCyrillic(src: string): string {
   let out = '';
   let i = 0;
 
   while (i < src.length) {
     const rest = src.slice(i);
     const lowerRest = rest.toLowerCase();
-    let matched = false;
+    const ch = src[i];
+    const lower = ch.toLowerCase();
 
+    // ketsa → кетса: 't' ni alohida chiqaramiz, 's' keyingi aylanishda o'z yo'liga tushadi
+    if (lower === 't' && NATIVE_TS_SUFFIX.test(lowerRest)) {
+      out += isUpper(ch) ? 'Т' : 'т';
+      i++;
+      continue;
+    }
+
+    let matched = false;
     for (const [lat, cyr] of LAT_TO_CYR) {
       if (!lowerRest.startsWith(lat)) continue;
 
-      const source = src.slice(i, i + lat.length);
-      const upper = isUpper(source[0]);
-      const nextChar = src[i + lat.length];
-      const nextUpper = nextChar ? isUpper(nextChar) && LETTER.test(nextChar) : false;
+      const upper = isUpper(ch);
+      const nextUpper = contextUpper(src, i, i + lat.length);
 
       out += applyCase(cyr, upper, nextUpper);
       i += lat.length;
@@ -110,9 +143,6 @@ function latinToCyrillic(input: string): string {
     }
 
     if (matched) continue;
-
-    const ch = src[i];
-    const lower = ch.toLowerCase();
 
     if (lower === 'e') {
       const prev = i === 0 ? '' : src[i - 1];
@@ -134,6 +164,15 @@ function latinToCyrillic(input: string): string {
     i++;
   }
   return out;
+}
+
+/** Bo'shliq bo'yicha bo'laklab, chet harfli so'zlarni (brend, qisqartma) o'z holicha qoldiradi. */
+function latinToCyrillic(input: string): string {
+  return input
+    .normalize('NFC')
+    .split(/(\s+)/)
+    .map((tok) => (FOREIGN_LATIN.test(tok) ? tok : latinWordToCyrillic(tok)))
+    .join('');
 }
 
 // ---------------------------------------------------------------------------

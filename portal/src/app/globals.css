@@ -15,8 +15,12 @@
 
   /* brend */
   --siyoh: #10233a;
-  --chinni: #1391a5;
+  /* #0d7a8c — oq yuzada 5.0:1, fon (#f7f4ee) da 4.6:1, ustidagi oq matn 5.0:1 (AA).
+     Avvalgi #1391a5 (3.7:1) faqat grafik tokenlarida qoldi (matn emas). */
+  --chinni: #0d7a8c;
   --chinni-toq: #0c6b7a;
+  /* chinni fonidagi matn rangi — tungi rejimda oq o'rniga siyoh (5.3:1) */
+  --chinni-ustida: #ffffff;
   --quyosh: #eba937;
   --quyosh-matn: #8a6011;
   --qogoz: #f7f4ee;
@@ -45,6 +49,7 @@
     color-scheme: dark;
     --chinni: #1fa3b8;
     --chinni-toq: #5fcadb;
+    --chinni-ustida: var(--siyoh);
     --quyosh-matn: #f2c567;
 
     --fon: #0e1a2b;
@@ -70,6 +75,7 @@
   color-scheme: dark;
   --chinni: #1fa3b8;
   --chinni-toq: #5fcadb;
+  --chinni-ustida: var(--siyoh);
   --quyosh-matn: #f2c567;
 
   --fon: #0e1a2b;
@@ -89,10 +95,17 @@
 }
 
 @theme inline {
+  /* --- §5.2 Og'irliklar: font-500/600/700 utilitalari. Tailwind 4 da raqamli
+     og'irlik tokeni yo'q — bularsiz sarlavhalar 400 da chiqadi. ------------ */
+  --font-weight-500: 500;
+  --font-weight-600: 600;
+  --font-weight-700: 700;
+
   /* --- §5.1 Ranglar → Tailwind tokenlari ------------------------------- */
   --color-siyoh: var(--siyoh);
   --color-chinni: var(--chinni);
   --color-chinni-toq: var(--chinni-toq);
+  --color-chinni-ustida: var(--chinni-ustida);
   --color-quyosh: var(--quyosh);
   --color-quyosh-matn: var(--quyosh-matn);
   --color-qogoz: var(--qogoz);
@@ -122,50 +135,54 @@
 }
 
 /* ==========================================================================
-   Asos
+   Asos — `@layer base` ichida: Tailwind utilitalari (`leading-snug`,
+   `rounded-full` ...) qatlamsiz qoidalarni yenga olmas edi, base qatlamini
+   yengadi. Preflight ham shu qatlamda, lekin oldinroq — bizniki ustun.
    ========================================================================== */
 
-html {
-  scroll-behavior: smooth;
-  -webkit-text-size-adjust: 100%;
-}
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
 
-body {
-  background: var(--fon);
-  color: var(--matn);
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: 1.6; /* §5.2 */
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
+  body {
+    background: var(--fon);
+    color: var(--matn);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: 1.6; /* §5.2 */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
 
-/* §5.5 — klaviatura fokus halqalari ko'rinadi */
-:focus-visible {
-  outline: 2px solid var(--chinni);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
+  /* §5.5 — klaviatura fokus halqalari ko'rinadi (outline elementning o'z radiusiga ergashadi) */
+  :focus-visible {
+    outline: 2px solid var(--chinni);
+    outline-offset: 2px;
+  }
 
-::selection {
-  background: color-mix(in srgb, var(--chinni) 24%, transparent);
-}
+  ::selection {
+    background: color-mix(in srgb, var(--chinni) 24%, transparent);
+  }
 
-h1,
-h2,
-h3 {
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
-}
+  h1,
+  h2,
+  h3 {
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
 
-p {
-  text-wrap: pretty;
+  p {
+    text-wrap: pretty;
+  }
 }
 
 /* Ma'lumot raqamlari ustma-ust tekis turadi (§5.2 — "reyestr" hissi) */
 .raqam {
+  white-space: nowrap; /* raqam ichidagi buzilmas bo'shliq bilan birga */
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-weight: 500;

@@ -1,10 +1,15 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { ALL_DISTRICTS, ALL_QUOTAS, PARAM, SORT_OPTIONS, activeChips, educationSlug } from '@/lib/search-params';
 import { EDUCATION_LEVELS, SALARY_STEPS, STAVKA_OPTIONS, formatNumber } from '@/lib/format';
 import type { Script } from '@/lib/transliterate';
+
+/** Maosh chipi: SALARY_STEPS faqat lotincha `label` beradi — kirillcha variant qiymatdan yasaladi (activeChips bilan bir xil). */
+function salaryLabel(step: (typeof SALARY_STEPS)[number], script: Script): string {
+  return script === 'cyr' ? `${Number(step.value) / 1_000_000} млн дан юқори` : step.label;
+}
 
 const TEXT = {
   lat: {
@@ -67,7 +72,7 @@ function Check({
       />
       <span className={checked ? 'text-matn' : 'text-tosh'}>{label}</span>
       {count !== undefined && (
-        <span className="raqam ml-auto text-xs text-tosh/70">{formatNumber(count)}</span>
+        <span className="raqam ml-auto text-xs text-tosh">{formatNumber(count)}</span>
       )}
     </label>
   );
@@ -86,6 +91,51 @@ export function FilterPanel({
   const router = useRouter();
   const params = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetTitleId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Mobil sheet ochiq bo'lganda: orqadagi sahifa skroll qilinmaydi, Escape yopadi,
+   * fokus sheet ichida qoladi (Tab aylanadi), yopilganda fokus "Filtrlar" tugmasiga qaytadi.
+   */
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSheetOpen(false);
+        return;
+      }
+      if (e.key !== 'Tab' || !sheetRef.current) return;
+      const focusable = Array.from(
+        sheetRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !sheetRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !sheetRef.current.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+      triggerRef.current?.focus();
+    };
+  }, [sheetOpen]);
 
   /** Filtr o'zgarganda sahifa 1 ga qaytadi — aks holda bo'sh sahifa chiqadi. */
   const push = useCallback(
@@ -190,7 +240,7 @@ export function FilterPanel({
                     : 'rounded-full border border-chiziq bg-yuza px-3 py-1 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
                 }
               >
-                {s.label}
+                {salaryLabel(s, script)}
               </button>
             );
           })}
@@ -261,6 +311,7 @@ export function FilterPanel({
       <div className="bosmada-yashir lg:hidden">
         <div className="flex gap-2">
           <button
+            ref={triggerRef}
             type="button"
             onClick={() => setSheetOpen(true)}
             className="flex-1 rounded-karta border border-chiziq bg-yuza px-4 py-2.5 text-sm font-500"
@@ -284,17 +335,29 @@ export function FilterPanel({
         </div>
 
         {sheetOpen && (
-          <div className="fixed inset-0 z-50 flex items-end" role="dialog" aria-modal="true">
+          <div
+            ref={sheetRef}
+            className="fixed inset-0 z-50 flex items-end"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={sheetTitleId}
+          >
             <button
               type="button"
               aria-label={t.close}
               onClick={() => setSheetOpen(false)}
-              className="absolute inset-0 bg-siyoh/40"
+              className="absolute inset-0 touch-none bg-siyoh/40"
             />
-            <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-fon p-5 pb-8">
+            <div
+              className="relative max-h-[85vh] w-full overflow-y-auto overscroll-contain rounded-t-2xl bg-fon p-5"
+              style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
+            >
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-display text-base font-600">{t.filters}</h2>
+                <h2 id={sheetTitleId} className="font-display text-base font-600">
+                  {t.filters}
+                </h2>
                 <button
+                  ref={closeRef}
                   type="button"
                   onClick={() => setSheetOpen(false)}
                   className="rounded-full px-3 py-1 text-xs text-tosh hover:text-matn"

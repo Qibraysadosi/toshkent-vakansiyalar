@@ -75,6 +75,23 @@ function useChartTheme(): ChartTheme {
   return theme;
 }
 
+/**
+ * Tor ekran (telefon) — matchMedia orqali, render vaqtida window o'qilmaydi.
+ * SSR va birinchi renderda `false` (keng): ResponsiveContainer serverda grafik
+ * chizmaydi, shuning uchun miltillash bo'lmaydi. Aylantirish/resize'da yangilanadi.
+ */
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const update = () => setNarrow(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return narrow;
+}
+
 const nf = new Intl.NumberFormat('ru-RU');
 const fmt = (n: number) => nf.format(Math.round(n)).replace(/ /g, ' ');
 
@@ -156,7 +173,7 @@ export function HorizontalBars({
   // Har bar uchun ~34px + x o'qi uchun joy (o'q yozuvi kesilib qolmasin)
   const height = data.length * 34 + 36;
   // Telefonda o'q yozuvi uchun kamroq joy — kesilgan nom tooltip/jadvalda to'liq
-  const narrow = typeof window !== 'undefined' && window.innerWidth < 640;
+  const narrow = useNarrow();
   const labelWidth = narrow ? 120 : 200;
   const maxChars = narrow ? 16 : 26;
 
@@ -242,21 +259,30 @@ export function SalaryColumns({
 export function EducationSplit({
   data,
   total,
+  ariaLabel,
   tableCaption,
   tableHead,
 }: {
   data: { name: string; value: number }[];
   total: number;
+  /** Grafik nomi (masalan, karta sarlavhasi) — ekran o'quvchi uchun tavsif. */
+  ariaLabel?: string;
   tableCaption: string;
   tableHead: [string, string];
 }) {
   const pct = (v: number) => (total ? Math.round((v / total) * 1000) / 10 : 0);
   const th = useChartTheme();
   const ramp = th.ramp;
+  // Tavsif: "Ta'lim darajasi: Oliy 41%, O'rta-maxsus 35%, …". Nom berilmasa —
+  // legend va jadval shu ma'lumotni beradi, bar ekran o'quvchidan yashiriladi.
+  const summary = data.map((d) => `${d.name} ${pct(d.value)}%`).join(', ');
+  const barA11y = ariaLabel
+    ? { role: 'img' as const, 'aria-label': summary ? `${ariaLabel}: ${summary}` : ariaLabel }
+    : { 'aria-hidden': true as const };
 
   return (
     <div>
-      <div className="flex h-11 w-full overflow-hidden rounded-md" role="img" aria-label={tableCaption}>
+      <div className="flex h-11 w-full overflow-hidden rounded-md" {...barA11y}>
         {data.map((d, i) => (
           <div
             key={d.name}

@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { after } from 'next/server';
 import { getSimilarVacancies, getVacancy, incrementViews } from '@/lib/queries';
 import { getScript } from '@/lib/script';
 import { districtLabel, districtByDbName } from '@/lib/districts';
 import { transliterate } from '@/lib/transliterate';
+import { quotaLabel } from '@/lib/quotas';
 import {
   educationLabel,
   formatDate,
@@ -40,6 +44,7 @@ const TEXT = {
     allFromCompany: 'Shu korxonaning barcha vakansiyalari',
     back: 'Vakansiyalarga qaytish',
     views: 'marta ko’rilgan',
+    city: 'Toshkent',
   },
   cyr: {
     call: 'Рақамга қўнғироқ қилиш',
@@ -58,8 +63,48 @@ const TEXT = {
     allFromCompany: 'Шу корхонанинг барча вакансиялари',
     back: 'Вакансияларга қайтиш',
     views: 'марта кўрилган',
+    city: 'Тошкент',
   },
 } as const;
+
+/**
+ * URL'dagi id — faqat 1..15 xonali musbat butun son. `Number('abc')` / `1.5` / `1e21`
+ * to'g'ridan-to'g'ri `bigint` ustuniga ketsa pg "invalid input syntax" bilan 500 beradi,
+ * shuning uchun so'rovdan OLDIN tekshiriladi (opengraph-image.tsx da ham xuddi shu).
+ */
+function parseVacancyId(id: string): number | null {
+  const n = /^\d{1,15}$/.test(id) ? Number(id) : Number.NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+/** generateMetadata va sahifa bitta so'rovni bo'lishadi — React.cache bir request ichida dedup qiladi. */
+const getVacancyCached = cache(getVacancy);
+
+/**
+ * JSON-LD `<script>` ichiga qo'yiladi: `JSON.stringify` `<` ni ekranlamaydi, ya'ni
+ * Excel'dan kelgan `</script><script>…` matni HTML'dan chiqib ketib bajarilardi.
+ * `<` `>` `&` va U+2028/2029 unicode-escape qilinadi — JSON o'zgarmaydi.
+ */
+function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+/** Bot/preview so'rovlari views hisobiga kirmaydi (sitemap crawl 12k ta UPDATE bermasin). */
+const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|telegram|whatsapp|preview|curl|wget|python-requests|headless/i;
+
+/** `import_batch` "YYYY-MM" → keyingi oyning oxirgi kuni (JobPosting.validThrough). */
+function validThroughFromBatch(batch: string | null | undefined): string | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(batch ?? '');
+  if (!m) return null;
+  // Date.UTC(yil, oy+1, 0): oy 1-asosli → indeks+1 = keyingi oy, kun 0 = o'sha oyning oxirgi kuni
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) + 1, 0));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
 
 export async function generateMetadata({
   params,
@@ -67,12 +112,18 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const v = await getVacancy(Number(id));
+  const vid = parseVacancyId(id);
+  const v = vid === null ? null : await getVacancyCached(vid);
   if (!v || v.is_hidden) return { title: 'Topilmadi', robots: { index: false } };
 
+  // Sarlavha/tavsif bitta alifboda — aks holda "ҚОРОВУЛ — Olmazor … so'm" aralashmasi chiqadi
+  const script = await getScript();
+  const t = TEXT[script];
   const salary = formatSalary(v.salary === null ? null : Number(v.salary), v.salary_note);
-  const title = `${v.position} — ${districtLabel(v.district)}`;
-  const description = `${v.company_name}. ${salary.text}. ${districtLabel(v.district)}, Toshkent.`;
+  const title = `${transliterate(v.position, script)} — ${districtLabel(v.district, script)}`;
+  const description =
+    `${transliterate(v.company_name, script)}. ${transliterate(salary.text, script)}. ` +
+    `${districtLabel(v.district, script)}, ${t.city}.`;
 
   return {
     title,
@@ -98,17 +149,18 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export default async function VacancyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const numericId = Number(id);
-  if (!Number.isInteger(numericId) || numericId <= 0) notFound();
+  const vid = parseVacancyId(id);
+  if (vid === null) notFound();
 
-  const v = await getVacancy(numericId);
+  const v = await getVacancyCached(vid);
   if (!v || v.is_hidden) notFound();
 
   const script = await getScript();
   const t = TEXT[script];
 
-  // PLAN §6 — views++ (sahifa ISR bilan keshlanadi, hisob taxminiy)
-  await incrementViews(v.id).catch(() => {});
+  // PLAN §6 — views++ javob yuborilgandan keyin (`after`), renderni kutdirmaydi; botlar hisoblanmaydi
+  const ua = (await headers()).get('user-agent') ?? '';
+  if (!BOT_UA.test(ua)) after(() => incrementViews(v.id).catch(() => {}));
   const similar = await getSimilarVacancies(v, 4);
 
   const salary = formatSalary(v.salary === null ? null : Number(v.salary), v.salary_note);
@@ -116,46 +168,53 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
   const district = districtByDbName(v.district);
   const shareUrl = `${siteUrl()}/vakansiya/${v.id}`;
 
-  /* PLAN §10 — Google Jobs uchun JobPosting schema.org */
-  const jobPosting = {
-    '@context': 'https://schema.org',
-    '@type': 'JobPosting',
-    title: v.position,
-    description: `${v.position}. ${v.company_name}. ${districtLabel(v.district)}, Toshkent.`,
-    datePosted: v.posted_date,
-    employmentType: Number(v.stavka) >= 1 ? 'FULL_TIME' : 'PART_TIME',
-    hiringOrganization: {
-      '@type': 'Organization',
-      name: v.company_name,
-      identifier: { '@type': 'PropertyValue', name: 'STIR', value: v.stir },
-    },
-    jobLocation: {
-      '@type': 'Place',
-      address: {
-        '@type': 'PostalAddress',
-        addressLocality: districtLabel(v.district),
-        addressRegion: 'Toshkent',
-        addressCountry: 'UZ',
-      },
-    },
-    ...(v.salary !== null && {
-      baseSalary: {
-        '@type': 'MonetaryAmount',
-        currency: 'UZS',
-        value: { '@type': 'QuantitativeValue', value: Number(v.salary), unitText: 'MONTH' },
-      },
-    }),
-    ...(v.education && { educationRequirements: v.education }),
-    totalJobOpenings: v.positions_count,
-  };
+  /* PLAN §10 — Google Jobs uchun JobPosting schema.org.
+     `datePosted` majburiy — sanasi yo'q vakansiyada blok umuman chiqarilmaydi (null yuborilmaydi). */
+  const validThrough = validThroughFromBatch(v.import_batch);
+  const jobPosting = v.posted_date
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'JobPosting',
+        title: transliterate(v.position, script),
+        description: `${transliterate(v.position, script)}. ${transliterate(v.company_name, script)}. ${districtLabel(v.district, script)}, ${t.city}.`,
+        datePosted: v.posted_date,
+        ...(validThrough && { validThrough }),
+        employmentType: Number(v.stavka) >= 1 ? 'FULL_TIME' : 'PART_TIME',
+        hiringOrganization: {
+          '@type': 'Organization',
+          name: v.company_name,
+          identifier: { '@type': 'PropertyValue', name: 'STIR', value: v.stir },
+        },
+        jobLocation: {
+          '@type': 'Place',
+          address: {
+            '@type': 'PostalAddress',
+            addressLocality: districtLabel(v.district, script),
+            addressRegion: t.city,
+            addressCountry: 'UZ',
+          },
+        },
+        ...(v.salary !== null && {
+          baseSalary: {
+            '@type': 'MonetaryAmount',
+            currency: 'UZS',
+            value: { '@type': 'QuantitativeValue', value: Number(v.salary), unitText: 'MONTH' },
+          },
+        }),
+        ...(v.education && { educationRequirements: v.education }),
+        totalJobOpenings: v.positions_count,
+      }
+    : null;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <script
-        type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPosting) }}
-      />
+      {jobPosting && (
+        <script
+          type="application/ld+json"
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(jobPosting) }}
+        />
+      )}
 
       <TrackView id={v.id} position={v.position} district={v.district} />
 
@@ -193,7 +252,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
         {salary.muted ? (
           <p className="mt-1 text-base text-tosh">{transliterate(salary.text, script)}</p>
         ) : (
-          <p className="raqam mt-1 text-xl text-matn">{salary.text}</p>
+          <p className="raqam mt-1 text-xl text-matn">{transliterate(salary.text, script)}</p>
         )}
 
         {/* Telefonda: raqam butun kenglikda, qolganlari 2 ustunda; katta ekranda bir qatorda */}
@@ -232,12 +291,21 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
         <Row label={t.district}>{districtLabel(v.district, script)}</Row>
         {v.department && <Row label={t.department}>{transliterate(v.department, script)}</Row>}
         {v.education && <Row label={t.education}>{educationLabel(v.education, script)}</Row>}
-        {v.stavka && <Row label={t.stavka}><span className="raqam">{formatStavka(v.stavka)}</span></Row>}
+        {v.stavka && (
+          <Row label={t.stavka}>
+            <span className="raqam">{transliterate(formatStavka(v.stavka), script)}</span>
+          </Row>
+        )}
         <Row label={t.places}><span className="raqam">{v.positions_count}</span></Row>
         {v.posted_date && (
           <Row label={t.posted}>{transliterate(formatDate(v.posted_date), script)}</Row>
         )}
-        {v.quota && <Row label={t.quota}>{transliterate(v.quota, script)}</Row>}
+        {/* Qisqa toifa nomi (quotaLabel); to'liq qonuniy matn — title'da. Noma'lum toifa xom matn bo'lib qaytadi, uni ham o'giramiz */}
+        {v.quota && (
+          <Row label={t.quota}>
+            <span title={v.quota}>{transliterate(quotaLabel(v.quota, script), script)}</span>
+          </Row>
+        )}
         <Row label={t.stir}>
           <Link href={`/korxona/${v.stir}`} className="raqam text-chinni hover:text-chinni-toq">
             {v.stir}

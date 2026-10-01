@@ -79,13 +79,14 @@ log "Sxema qo'llanmoqda..."
 psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$PORTAL/supabase/schema.sql" >/dev/null
 
 # ---------------------------------------------------------------------------
-# 3. .env.local (bor bo'lsa tegilmaydi)
+# 3. .env.local (bor bo'lsa tegilmaydi). Muhitda DATABASE_URL (masalan,
+#    Supabase'ning sessiya secret'i) bo'lsa, lokal Postgres o'rniga shu olinadi.
 # ---------------------------------------------------------------------------
 if [ ! -f "$PORTAL/.env.local" ]; then
   log ".env.local yaratilmoqda..."
   cat > "$PORTAL/.env.local" << ENV
 # Bulutli sessiya uchun avtomatik yaratildi (.claude/hooks/session-start.sh)
-DATABASE_URL=${DB_URL}
+DATABASE_URL=${DATABASE_URL:-$DB_URL}
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ADMIN_PASSWORD=parol123
 TG_BOT_TOKEN=

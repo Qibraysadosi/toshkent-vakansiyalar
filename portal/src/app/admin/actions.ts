@@ -1,7 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { isAdmin, signIn, signOut } from '@/lib/admin-auth';
+import { clientIpFromHeaders, hitBucket } from '@/lib/rate-limit';
 import { commitStaged, discardStaged, stageImport } from '@/lib/import-run';
 import type { ImportReport } from '@/lib/import-transform';
 import { deleteSynonym, setVacancyHidden, upsertSynonym } from '@/lib/queries';
@@ -19,7 +21,19 @@ export interface ImportPreviewState extends ActionState {
   done?: boolean;
 }
 
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+// Vercel Functions so'rov tanasini 4.5 MB dan yuqorida platforma darajasida
+// (413) rad etadi — bizning tekshiruv unga yetguncha ishlashi uchun 4 MB.
+// Kattaroq fayl uchun `npm run import` (skript bevosita bazaga yozadi).
+// Xuddi shu chegara forms.tsx (mijoz tomonida) va next.config.ts da.
+const MAX_UPLOAD_MB = 4;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+
+// Kirish urinishlari: 15 daqiqada IP uchun 5 ta, hammasi uchun 30 ta.
+// Xotiradagi hisoblagich — Vercel'da har instans/sovuq start uchun alohida,
+// shuning uchun bu faqat birinchi qatlam (qarang: rate-limit.ts izohi).
+const LOGIN_WINDOW_MS = 15 * 60_000;
+const LOGIN_PER_IP = 5;
+const LOGIN_GLOBAL = 30;
 
 function revalidateAll() {
   for (const p of ['/', '/vakansiyalar', '/statistika', '/admin', '/admin/import', '/admin/vakansiyalar', '/sitemap.xml']) {
@@ -30,8 +44,22 @@ function revalidateAll() {
 export async function loginAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   const password = String(form.get('password') ?? '');
   if (!password) return { error: 'Parol kiritilmadi.' };
+
+  // Urinish `signIn` dan OLDIN sanaladi — to'g'ri topilgan parol ham hisobni chetlab o'tmasin.
+  const ip = clientIpFromHeaders(await headers());
+  const perIp = hitBucket(`login:${ip}`, LOGIN_PER_IP, LOGIN_WINDOW_MS);
+  const global = hitBucket('login:*', LOGIN_GLOBAL, LOGIN_WINDOW_MS);
+  if (perIp.limited || global.limited) {
+    console.warn(`[admin] kirish cheklandi, ip=${ip}`);
+    return { error: "Juda ko'p urinish. Bir necha daqiqadan so'ng qayta urinib ko'ring." };
+  }
+
   const ok = await signIn(password);
-  if (!ok) return { error: "Parol noto'g'ri." };
+  if (!ok) {
+    console.warn(`[admin] noto'g'ri parol, ip=${ip}`);
+    await new Promise((r) => setTimeout(r, 500)); // qo'pol kuch urinishlarini sekinlashtiradi
+    return { error: "Parol noto'g'ri." };
+  }
   revalidatePath('/admin');
   return { ok: 'Kirdingiz.' };
 }
@@ -50,7 +78,9 @@ export async function previewImportAction(_prev: ImportPreviewState, form: FormD
 
   const file = form.get('file');
   if (!(file instanceof File) || file.size === 0) return { error: 'Fayl tanlanmadi.' };
-  if (file.size > MAX_UPLOAD_BYTES) return { error: 'Fayl juda katta (25 MB dan oshmasin).' };
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return { error: `Fayl juda katta (${MAX_UPLOAD_MB} MB dan oshmasin — Vercel chegarasi). Kattaroq fayl uchun \`npm run import\` ishlating.` };
+  }
   if (!/\.xlsx?$/i.test(file.name)) return { error: 'Faqat .xlsx fayl qabul qilinadi.' };
 
   const batch = String(form.get('batch') ?? '').trim() || new Date().toISOString().slice(0, 7);

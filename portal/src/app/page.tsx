@@ -8,7 +8,12 @@ import { DistrictMap } from '@/components/DistrictMap';
 import { SearchBox } from '@/components/SearchBox';
 import { RecentlyViewed } from '@/components/RecentlyViewed';
 
-export const revalidate = 3600; // PLAN §10 — ro'yxatlar 1 soat
+/*
+ * Layout cookie o'qiydi (alifbo/mavzu) — butun marshrut har so'rovda render
+ * qilinadi, shuning uchun `revalidate` bu yerda hech qachon ishlamas edi
+ * (PLAN §10 ISR va'dasi so'rovlar keshi orqali hal qilinishi kerak). Oshkora dinamik.
+ */
+export const dynamic = 'force-dynamic';
 
 const TEXT = {
   lat: {
@@ -108,11 +113,13 @@ export default async function HomePage() {
           <ul className="flex flex-wrap gap-2">
             {topSearches.map((s) => (
               <li key={s.query_norm}>
+                {/* `label` — foydalanuvchilar yozgan asl ko'rinish (apostrof bilan); `query_norm`
+                    transliteratsiyaga yaramaydi (oqituvchi → оқитувчи). Server q'ni o'zi normalize qiladi. */}
                 <Link
-                  href={`/vakansiyalar?q=${encodeURIComponent(s.query_norm)}`}
+                  href={`/vakansiyalar?q=${encodeURIComponent(s.label)}`}
                   className="inline-block rounded-full border border-chiziq bg-yuza px-3.5 py-1.5 text-xs transition-colors hover:border-chinni hover:text-chinni"
                 >
-                  {transliterate(s.query_norm, script)}
+                  {transliterate(s.label, script)}
                 </Link>
               </li>
             ))}

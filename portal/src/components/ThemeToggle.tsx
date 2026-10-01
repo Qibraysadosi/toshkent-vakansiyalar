@@ -67,7 +67,7 @@ export function ThemeToggle({ current, script }: { current: Theme; script: Scrip
       onClick={next}
       title={`${t.title}: ${t[current]}`}
       aria-label={`${t.title}: ${t[current]}`}
-      className="inline-flex size-9 items-center justify-center rounded-full border border-chiziq bg-yuza text-tosh transition-colors hover:border-chinni hover:text-chinni"
+      className="relative inline-flex size-9 items-center justify-center rounded-full border border-chiziq bg-yuza text-tosh transition-colors before:absolute before:-inset-1 before:content-[''] hover:border-chinni hover:text-chinni"
     >
       <Icon theme={current} />
     </button>

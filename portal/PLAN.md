@@ -228,6 +228,10 @@ Har bosqich = alohida sessiya. Oxirida: tekshiruv o'tdi → deploy → shu fayld
 
 ## Keyinga (backlog — hozir qilinmaydi)
 
+- Admin kirish cheklovi hozir xotirada (`rate-limit.ts`, `hitBucket`) — Vercel'da
+  har instans / sovuq start uchun alohida hisoblanadi. Barqaror variant: bazada
+  `login_attempts` jadvali (ip, urinishlar, oxirgi vaqt) yoki Upstash.
+
 - Rezyume yuklash / ish beruvchi kabineti
 - Ko'p til (rus interfeysi)
 - Supabase Auth bilan admin

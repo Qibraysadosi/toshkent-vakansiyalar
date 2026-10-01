@@ -3,9 +3,13 @@ import { districtLabel } from '@/lib/districts';
 import { botConfigured, webhookInfo } from '@/lib/telegram';
 import { siteUrl } from '@/lib/env';
 import { NotifyButton } from '../forms';
-import { Card, Empty, Stat, TableWrap, td, th } from '../ui';
+import { Card, Empty, Stat, TableWrap, td, th, xato } from '../ui';
 
 export const metadata = { title: 'Telegram' };
+// Vercel: `notifyAction` (bildirishnoma yuborish) shu sahifa segmentida ishlaydi —
+// 10 soniyalik standart chegarada bir necha o'n obunachidan keyin uzilardi.
+// sendNotifications() 45 s byudjet bilan to'xtab `remaining` qaytaradi.
+export const maxDuration = 60;
 
 export default async function AdminSubscribersPage() {
   const enabled = botConfigured();
@@ -31,7 +35,7 @@ export default async function AdminSubscribersPage() {
         <dl className="grid gap-2 text-sm">
           <div className="flex justify-between gap-4 border-b border-chiziq py-2">
             <dt className="text-tosh">TG_BOT_TOKEN</dt>
-            <dd className={enabled ? 'text-chinni' : 'text-[#b3453f]'}>{enabled ? "O'rnatilgan" : "O'rnatilmagan"}</dd>
+            <dd className={enabled ? 'text-chinni' : xato}>{enabled ? "O'rnatilgan" : "O'rnatilmagan"}</dd>
           </div>
           <div className="flex justify-between gap-4 border-b border-chiziq py-2">
             <dt className="text-tosh">Webhook</dt>
@@ -48,7 +52,7 @@ export default async function AdminSubscribersPage() {
           {hook?.last_error_message && (
             <div className="flex justify-between gap-4 py-2">
               <dt className="text-tosh">Oxirgi xato</dt>
-              <dd className="text-right text-xs text-[#b3453f]">{hook.last_error_message}</dd>
+              <dd className={`text-right text-xs ${xato}`}>{hook.last_error_message}</dd>
             </div>
           )}
         </dl>
@@ -74,11 +78,11 @@ export default async function AdminSubscribersPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-chiziq">
-                  <th className={th}>Foydalanuvchi</th>
-                  <th className={th}>Kasb</th>
-                  <th className={th}>Tuman</th>
-                  <th className={th}>Holat</th>
-                  <th className={`${th} text-right`}>Oxirgi xabar</th>
+                  <th scope="col" className={th}>Foydalanuvchi</th>
+                  <th scope="col" className={th}>Kasb</th>
+                  <th scope="col" className={th}>Tuman</th>
+                  <th scope="col" className={th}>Holat</th>
+                  <th scope="col" className={`${th} text-right`}>Oxirgi xabar</th>
                 </tr>
               </thead>
               <tbody>

@@ -116,7 +116,7 @@ function buildFilters(p: SearchParams, params: unknown[]): string[] {
 }
 
 export async function searchVacancies(p: SearchParams): Promise<SearchResult> {
-  const page = Math.max(1, p.page ?? 1);
+  let page = Math.max(1, p.page ?? 1);
   const perPage = Math.min(100, Math.max(1, p.perPage ?? 20));
   const offset = (page - 1) * perPage;
   const sort = p.sort && ORDER_BY[p.sort] ? p.sort : 'yangi';
@@ -124,7 +124,7 @@ export async function searchVacancies(p: SearchParams): Promise<SearchResult> {
   const qNorm = normalize(p.q ?? '');
   const { terms, expandedFrom } = await expandQuery(qNorm);
 
-  const run = async (mode: 'exact' | 'fuzzy') => {
+  const run = async (mode: 'exact' | 'fuzzy', off: number) => {
     const params: unknown[] = [];
     const where = buildFilters(p, params);
 
@@ -146,7 +146,7 @@ export async function searchVacancies(p: SearchParams): Promise<SearchResult> {
         : ORDER_BY[sort];
 
     const limitIdx = params.push(perPage);
-    const offsetIdx = params.push(offset);
+    const offsetIdx = params.push(off);
 
     return query<VacancyListItem & { total: string }>(
       `select ${SELECT_LIST}, count(*) over() as total
@@ -159,13 +159,26 @@ export async function searchVacancies(p: SearchParams): Promise<SearchResult> {
     );
   };
 
-  let rows = await run('exact');
+  let rows = await run('exact', offset);
   let fuzzy = false;
 
-  // PLAN §3.1 — aniq moslik kam bo'lsa, xato yozilgan so'rov uchun fuzzy fallback
+  // Sahifa raqami natijalar sonidan oshib ketgan bo'lsa (eski havola, qo'lda
+  // yozilgan URL) — oxirgi mavjud sahifaga qisqartiramiz. Aks holda total=0
+  // chiqib, noto'g'ri fuzzy fallback ishga tushar edi.
+  if (rows.length === 0 && offset > 0) {
+    const first = await run('exact', 0);
+    if (first.length) {
+      const total = Number(first[0].total);
+      page = Math.max(1, Math.min(page, Math.ceil(total / perPage)));
+      rows = page > 1 ? await run('exact', (page - 1) * perPage) : first;
+    }
+  }
+
+  // PLAN §3.1 — aniq moslik yo'q bo'lsa, xato yozilgan so'rov uchun fuzzy fallback
   if (rows.length === 0 && qNorm.length >= 3) {
-    rows = await run('fuzzy');
+    rows = await run('fuzzy', 0);
     fuzzy = rows.length > 0;
+    if (fuzzy) page = 1;
   }
 
   const total = rows.length ? Number(rows[0].total) : 0;
@@ -318,22 +331,40 @@ export async function autocomplete(q: string, limit = 6): Promise<PositionGroup[
   }));
 }
 
-/** Har qidiruv yoziladi (PLAN §3.3) — talab analitikasi uchun. */
-export async function logSearch(qNorm: string, resultsCount: number): Promise<void> {
+/**
+ * Qidiruv analitikasi (PLAN §3.3). `qRaw` — foydalanuvchi yozgan asl matn
+ * (chiplarda ko'rsatish uchun, apostroflari bilan), `qNorm` — qidiruv kaliti.
+ * Chaqiruvchi tomon faqat 1-sahifa va standart saralashda yozadi (robotlar,
+ * varaqlash va saralash loglarni to'ldirmasin).
+ */
+export async function logSearch(qRaw: string, qNorm: string, resultsCount: number): Promise<void> {
   if (!qNorm) return;
-  await query('insert into search_logs (query_norm, results_count) values ($1, $2)', [qNorm, resultsCount]);
+  await query('insert into search_logs (query, query_norm, results_count) values ($1, $2, $3)', [
+    qRaw.trim().slice(0, 100),
+    qNorm.slice(0, 200),
+    resultsCount,
+  ]);
+  // Saqlash muddati: 180 kundan eski loglar vaqti-vaqti bilan (taxminan har
+  // 100-yozuvda) tozalanadi — jadval cheksiz o'smaydi, alohida cron shart emas.
+  if (Math.random() < 0.01) {
+    await query("delete from search_logs where created_at < now() - interval '180 days'").catch(() => {});
+  }
 }
 
 export interface TopSearch {
   query_norm: string;
+  /** Ko'rsatish matni — foydalanuvchilar eng ko'p yozgan ko'rinish (masalan, "o'qituvchi"). */
+  label: string;
   hits: number;
   results_count: number;
 }
 
 /** Bosh sahifadagi "Ko'p qidirilayotganlar" chiplari. */
 export async function getTopSearches(limit = 8, days = 30): Promise<TopSearch[]> {
-  const rows = await query<{ query_norm: string; hits: string; results_count: string }>(
-    `select query_norm, count(*) as hits, max(results_count) as results_count
+  const rows = await query<{ query_norm: string; label: string; hits: string; results_count: string }>(
+    `select query_norm,
+            coalesce(mode() within group (order by query), query_norm) as label,
+            count(*) as hits, max(results_count) as results_count
      from search_logs
      where created_at > now() - ($2 || ' days')::interval
        and query_norm <> ''
@@ -345,6 +376,7 @@ export async function getTopSearches(limit = 8, days = 30): Promise<TopSearch[]>
   );
   return rows.map((r) => ({
     query_norm: r.query_norm,
+    label: r.label || r.query_norm,
     hits: Number(r.hits),
     results_count: Number(r.results_count),
   }));
@@ -368,8 +400,9 @@ export interface CompanyDetail {
 export async function getCompany(stir: string): Promise<CompanyDetail | null> {
   return queryOne<CompanyDetail>(
     `select c.*,
-            (select count(*) from vacancies v where v.stir = c.stir) as vacancy_count,
-            (select coalesce(sum(positions_count), 0) from vacancies v where v.stir = c.stir) as positions_count
+            (select count(*) from vacancies v where v.stir = c.stir and not v.is_hidden) as vacancy_count,
+            (select coalesce(sum(v.positions_count), 0) from vacancies v where v.stir = c.stir and not v.is_hidden)
+              as positions_count
      from companies c where c.stir = $1`,
     [stir],
   );
@@ -388,7 +421,7 @@ export async function getAllVacancyIds(): Promise<number[]> {
 
 /** Saqlangan ro'yxat uchun — id bo'yicha (tartib saqlanadi). */
 export async function getVacanciesByIds(ids: number[]): Promise<VacancyListItem[]> {
-  const clean = [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))].slice(0, 100);
+  const clean = [...new Set(ids.filter((n) => Number.isSafeInteger(n) && n > 0))].slice(0, 100);
   if (clean.length === 0) return [];
   const rows = await query<VacancyListItem>(
     `select ${SELECT_LIST}
@@ -534,11 +567,13 @@ export interface SearchLogRow {
   last_at: string;
 }
 
-export async function getSearchLogSummary(limit = 50): Promise<SearchLogRow[]> {
+export async function getSearchLogSummary(limit = 50, days = 90): Promise<SearchLogRow[]> {
   const rows = await query<{ query_norm: string; hits: string; results_count: string; last_at: string }>(
     `select query_norm, count(*) as hits, max(results_count) as results_count, max(created_at) as last_at
-     from search_logs group by query_norm order by count(*) desc limit $1`,
-    [limit],
+     from search_logs
+     where created_at > now() - ($2 || ' days')::interval
+     group by query_norm order by count(*) desc limit $1`,
+    [limit, days],
   );
   return rows.map((r) => ({
     query_norm: r.query_norm,
@@ -590,9 +625,13 @@ export interface Subscription {
   tg_chat_id: number;
   username: string | null;
   query_norm: string | null;
+  /** Foydalanuvchi yozgan asl kasb matni (ko'rsatish uchun; moslashtirish query_norm bo'yicha) */
+  query_text: string | null;
   district: string | null;
   is_active: boolean;
   notified_at: string | null;
+  /** Oxirgi ko'rib chiqilgan import batch (xabar yuborilgan yoki mos vakansiya topilmagan) */
+  last_batch: string | null;
   created_at: string;
 }
 
@@ -602,14 +641,15 @@ export async function upsertSubscription(
   username: string | null,
   queryNorm: string | null,
   district: string | null,
+  queryText: string | null = null,
 ): Promise<void> {
   await query(
-    `insert into subscriptions (tg_chat_id, username, query_norm, district, is_active)
-     values ($1, $2, $3, $4, true)
+    `insert into subscriptions (tg_chat_id, username, query_norm, query_text, district, is_active)
+     values ($1, $2, $3, $4, $5, true)
      on conflict (tg_chat_id) do update set
-       username = excluded.username, query_norm = excluded.query_norm,
+       username = excluded.username, query_norm = excluded.query_norm, query_text = excluded.query_text,
        district = excluded.district, is_active = true`,
-    [chatId, username, queryNorm, district],
+    [chatId, username, queryNorm, queryText, district],
   );
 }
 
@@ -625,6 +665,22 @@ export async function listSubscriptions(limit = 200): Promise<Subscription[]> {
   return query<Subscription>('select * from subscriptions order by created_at desc limit $1', [limit]);
 }
 
+/**
+ * Bildirishnoma navbati: faol, kasb yoki tuman tanlagan va SHU batch uchun hali
+ * ko'rib chiqilmagan obunachilar (`last_batch` boshqa). Shu tufayli yuborish
+ * uzilib qolsa (Vercel vaqt chegarasi) yoki tugma qayta bosilsa, davom etadi —
+ * hech kimga ikki marta bormaydi. Eng eski obuna birinchi.
+ */
+export async function listPendingSubscriptions(batch: string, limit = 5000): Promise<Subscription[]> {
+  return query<Subscription>(
+    `select * from subscriptions
+     where is_active and (query_norm is not null or district is not null)
+       and last_batch is distinct from $1
+     order by created_at asc, id asc limit $2`,
+    [batch, limit],
+  );
+}
+
 export async function getSubscriptionStats(): Promise<{ total: number; active: number; notified: number }> {
   const row = await queryOne<{ total: string; active: string; notified: string }>(
     `select count(*) as total,
@@ -635,10 +691,15 @@ export async function getSubscriptionStats(): Promise<{ total: number; active: n
   return { total: Number(row?.total ?? 0), active: Number(row?.active ?? 0), notified: Number(row?.notified ?? 0) };
 }
 
-/** Importdan keyin obunachiga mos yangi vakansiyalar (faqat berilgan batch). */
+/**
+ * Importdan keyin obunachiga mos YANGI vakansiyalar — faqat shu batchda birinchi
+ * marta paydo bo'lganlar (`first_batch`). `import_batch` upsertda har oy
+ * yangilanadi, shuning uchun unga qarab bo'lmaydi: o'tgan oydan qolganlar ham
+ * "yangi" bo'lib qayta ketardi.
+ */
 export async function matchesForSubscription(sub: Subscription, batch: string, limit = 5): Promise<VacancyListItem[]> {
   const params: unknown[] = [batch];
-  const where = ['v.import_batch = $1', 'not v.is_hidden'];
+  const where = ['v.first_batch = $1', 'not v.is_hidden'];
   if (sub.query_norm) {
     const { terms } = await expandQuery(sub.query_norm);
     params.push(terms.map((t) => `%${t}%`));
@@ -657,8 +718,17 @@ export async function matchesForSubscription(sub: Subscription, batch: string, l
   );
 }
 
-export async function markNotified(chatId: number): Promise<void> {
-  await query('update subscriptions set notified_at = now() where tg_chat_id = $1', [chatId]);
+/** Xabar yuborildi: `notified_at` yangilanadi, batch berilsa `last_batch` ham. */
+export async function markNotified(chatId: number, batch?: string): Promise<void> {
+  await query(
+    'update subscriptions set notified_at = now(), last_batch = coalesce($2, last_batch) where tg_chat_id = $1',
+    [chatId, batch ?? null],
+  );
+}
+
+/** Shu batch uchun ko'rib chiqildi (mos vakansiya yo'q yoki yuborib bo'lmadi) — qayta urinilmaydi. */
+export async function markChecked(chatId: number, batch: string): Promise<void> {
+  await query('update subscriptions set last_batch = $2 where tg_chat_id = $1', [chatId, batch]);
 }
 
 /** Bot ichidagi oddiy qidiruv — sayt bilan bitta normalize()/sinonim mantiqi. */

@@ -15,9 +15,12 @@ export function SaveButton({
 }) {
   const { has, toggle, ready } = useSaved();
   const saved = ready && has(id);
-  const label = saved
+  // Toggle tugmaning nomi o'zgarmaydi — holatni `aria-pressed` bildiradi
+  // ("Saqlash, bosilgan"). Harakat fe'li faqat `title` (sichqoncha maslahati) da.
+  const name = script === 'cyr' ? 'Сақлаш' : 'Saqlash';
+  const hint = saved
     ? script === 'cyr' ? 'Сақланганлардан олиб ташлаш' : 'Saqlanganlardan olib tashlash'
-    : script === 'cyr' ? 'Сақлаш' : 'Saqlash';
+    : name;
 
   const big = size === 'katta';
 
@@ -30,10 +33,11 @@ export function SaveButton({
         toggle(id);
       }}
       aria-pressed={saved}
-      aria-label={label}
-      title={label}
+      aria-label={name}
+      title={hint}
       className={`inline-flex items-center justify-center gap-2 rounded-full border transition-colors ${
-        big ? 'w-full px-4 py-2.5 text-sm sm:w-auto' : 'size-9'
+        // kichik: 36px doira, lekin bosish maydoni 44px (before: -inset-1) — ko'rinish o'zgarmaydi
+        big ? 'w-full px-4 py-2.5 text-sm sm:w-auto' : "relative size-9 before:absolute before:-inset-1 before:content-['']"
       } ${
         saved
           ? 'border-chinni bg-chinni/12 text-chinni'

@@ -13,8 +13,24 @@ export function siteUrl(): string {
   return 'http://localhost:3000';
 }
 
+let weakPasswordWarned = false;
+
 /** Admin paroli. O'rnatilmagan bo'lsa admin panel butunlay yopiq. */
 export function adminPassword(): string | null {
   const p = process.env.ADMIN_PASSWORD;
-  return p && p.length > 0 ? p : null;
+  if (!p) return null;
+  // Kirish cheklovi xotirada (rate-limit.ts) — qisqa parol Vercel'da baribir xavfli.
+  if (p.length < 12 && !weakPasswordWarned) {
+    weakPasswordWarned = true;
+    console.warn("[admin] ADMIN_PASSWORD 12 belgidan qisqa — kuchliroq parol qo'ying.");
+  }
+  return p;
+}
+
+/**
+ * DATABASE_URL o'rnatilganmi. Yo'q bo'lsa (masalan, Vercel'ga endigina joylangan
+ * sayt) layout xato o'rniga sozlash yo'riqnomasini ko'rsatadi (`SetupNotice`).
+ */
+export function dbConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL);
 }

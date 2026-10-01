@@ -8,7 +8,8 @@ import { transliterate } from '@/lib/transliterate';
 import { formatDate, formatNumber, formatPhone, splitPhones } from '@/lib/format';
 import { VacancyCard } from '@/components/VacancyCard';
 
-export const revalidate = 86400;
+/* Layout cookie o'qiydi — marshrut baribir dinamik, `revalidate` ishlamas edi. Oshkora dinamik. */
+export const dynamic = 'force-dynamic';
 
 const TEXT = {
   lat: {
@@ -120,7 +121,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ stir: 
         {company.district && <Row label={t.district}>{districtLabel(company.district, script)}</Row>}
         {company.address && <Row label={t.address}>{transliterate(company.address, script)}</Row>}
         {company.activity_type && <Row label={t.activity}>{transliterate(company.activity_type, script)}</Row>}
-        {company.registered_date && <Row label={t.registered}>{formatDate(company.registered_date)}</Row>}
+        {company.registered_date && <Row label={t.registered}>{formatDate(company.registered_date, script)}</Row>}
         {company.status && <Row label={t.status}>{transliterate(company.status, script)}</Row>}
       </dl>
 

@@ -58,7 +58,7 @@ export function VacancyCard({
                 {transliterate(salary.text, script)}
               </span>
             ) : (
-              <span className="raqam text-base text-matn">{salary.text}</span>
+              <span className="raqam text-base text-matn">{transliterate(salary.text, script)}</span>
             )}
             {badge && (
               <span className="rounded-full bg-quyosh/15 px-2 py-0.5 text-[11px] font-500 text-quyosh-matn sm:hidden">

@@ -124,6 +124,17 @@ export function parseSalary(raw: unknown): { salary: number | null; salary_note:
   return { salary: Math.round(numeric * 100) / 100, salary_note: null };
 }
 
+/**
+ * Haqiqiy kalendar sanasi bo'lsa "YYYY-MM-DD", aks holda null (31.04, 30.02,
+ * 13-oy ...). Faqat oy/kun chegarasini tekshirish yetmaydi: "2026-04-31"
+ * Postgres `date` ustuniga yozilganda butun import tranzaksiyasi yiqiladi.
+ */
+function calendarDate(y: number, m: number, d: number): string | null {
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 /** "DD.MM.YYYY" → "YYYY-MM-DD". Excel seriya raqamini ham qabul qiladi. */
 export function parseDate(raw: unknown): string | null {
   if (typeof raw === 'number' && Number.isFinite(raw)) {
@@ -134,14 +145,9 @@ export function parseDate(raw: unknown): string | null {
   }
   const s = cleanText(raw);
   const dotted = /^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/.exec(s);
-  if (dotted) {
-    const [, dd, mm, yyyy] = dotted;
-    const day = Number(dd);
-    const month = Number(mm);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (dotted) return calendarDate(Number(dotted[3]), Number(dotted[2]), Number(dotted[1]));
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) return calendarDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
   return null;
 }
 
@@ -299,6 +305,14 @@ export function transformRows(
       salaryScheduleNote++;
     }
 
+    // Tushunarsiz sana qatorni tashlamaydi — bo'sh qoladi, lekin hisobotda
+    // Excel qatori bilan ko'rinadi (aks holda xato jimgina yo'qolardi).
+    const rawDate = at(row, 'posted_date');
+    const posted_date = parseDate(rawDate);
+    if (posted_date === null && cleanText(rawDate)) {
+      errors.push({ row: excelRow, reason: "Sana noto'g'ri — bo'sh qoldirildi", value: cleanText(rawDate) });
+    }
+
     clean.push({
       district,
       stir,
@@ -306,7 +320,7 @@ export function transformRows(
       phone: parsePhone(at(row, 'phone')),
       department: cleanText(at(row, 'department')),
       position,
-      posted_date: parseDate(at(row, 'posted_date')),
+      posted_date,
       stavka: parseStavka(at(row, 'stavka')),
       salary,
       salary_note,

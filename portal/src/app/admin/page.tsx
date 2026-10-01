@@ -7,7 +7,7 @@ import {
   getTotals,
 } from '@/lib/queries';
 import { formatNumber } from '@/lib/format';
-import { Card, Empty, Stat, TableWrap, td, th } from './ui';
+import { Card, Empty, Stat, TableWrap, td, th, thRow } from './ui';
 
 export default async function AdminHome() {
   const [totals, quality, history, logs, subs] = await Promise.all([
@@ -53,9 +53,9 @@ export default async function AdminHome() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-chiziq">
-                    <th className={th}>Batch</th>
-                    <th className={`${th} text-right`}>Saqlandi</th>
-                    <th className={`${th} text-right`}>Sana</th>
+                    <th scope="col" className={th}>Batch</th>
+                    <th scope="col" className={`${th} text-right`}>Saqlandi</th>
+                    <th scope="col" className={`${th} text-right`}>Sana</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -115,7 +115,7 @@ export default async function AdminHome() {
                 ['Lavozimi kirill yozuvida', q.cyrillic],
               ].map(([label, value]) => (
                 <tr key={label} className="border-b border-chiziq last:border-0">
-                  <td className={`${td} text-tosh`}>{label}</td>
+                  <th scope="row" className={thRow}>{label}</th>
                   <td className={`${td} raqam text-right`}>{formatNumber(value)}</td>
                   <td className={`${td} raqam w-16 text-right text-tosh`}>{pct(value)}</td>
                 </tr>

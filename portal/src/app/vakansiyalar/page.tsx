@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
+import { after } from 'next/server';
 import { Suspense } from 'react';
 import { getDistrictCounts, getLatestPostedDate, getQuotaCounts, logSearch, searchVacancies } from '@/lib/queries';
 import { getScript } from '@/lib/script';
@@ -13,12 +15,23 @@ import { ActiveFilterChips, FilterPanel } from '@/components/FilterPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { Pagination } from '@/components/Pagination';
 
-export const metadata: Metadata = {
-  title: 'Vakansiyalar',
-  description: "Toshkentdagi bo'sh ish o'rinlari: tuman, ta'lim, maosh va stavka bo'yicha filtrlash.",
-};
+export async function generateMetadata({ searchParams }: { searchParams: SearchParamsInput }): Promise<Metadata> {
+  const raw = await searchParams;
+  const hasParams = Object.keys(raw).length > 0;
+  return {
+    title: 'Vakansiyalar',
+    description: "Toshkentdagi bo'sh ish o'rinlari: tuman, ta'lim, maosh va stavka bo'yicha filtrlash.",
+    alternates: { canonical: '/vakansiyalar' },
+    // Filtr/qidiruv kombinatsiyalari (?q=, ?sahifa=, ?saralash=) indekslanmasin —
+    // robotlar cheksiz variantlarni aylanib chiqmaydi, faqat asosiy sahifa qoladi.
+    robots: hasParams ? { index: false, follow: true } : undefined,
+  };
+}
 
 const PER_PAGE = 20;
+
+/** Qidiruv loglariga yozilmaydigan mijozlar (bosh sahifadagi chiplarni aylanib chiqadiganlar). */
+const BOT_UA = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|whatsapp|telegram/i;
 
 const TEXT = {
   lat: {
@@ -67,9 +80,16 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
   ]);
   const quotaCounts = Object.fromEntries(quotas.map((q) => [q.quota, q.count]));
 
-  // PLAN §3.3 — har qidiruv analitikaga yoziladi
-  if (parsed.q) {
-    await logSearch(normalize(parsed.q), result.total).catch(() => {});
+  // PLAN §3.3 — qidiruv analitikasi. Faqat 1-sahifa va standart saralash
+  // yoziladi (varaqlash va saralash bitta so'rov), robotlar yozilmaydi; yozuv
+  // javob yuborilgandan keyin (`after`) ketadi — render kutib turmaydi.
+  if (parsed.q && parsed.page === 1 && !params.get(PARAM.sort)) {
+    const ua = (await headers()).get('user-agent') ?? '';
+    if (!BOT_UA.test(ua)) {
+      const q = parsed.q;
+      const total = result.total;
+      after(() => logSearch(q, normalize(q), total).catch(() => {}));
+    }
   }
 
   const districtCounts = Object.fromEntries(districts.map((d) => [d.district, d.positions]));
@@ -103,7 +123,8 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
           </Suspense>
 
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-tosh">
+            {/* Filtr o'zgarganda natija soni ekran o'qigichga e'lon qilinadi */}
+            <p className="text-sm text-tosh" role="status" aria-live="polite" aria-atomic="true">
               <span className="raqam text-matn">{formatNumber(result.total)}</span> {t.found}
               {parsed.q && (
                 <>
@@ -125,9 +146,10 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
                     key={o.value}
                     href={sortParams(o.value)}
                     scroll={false}
+                    aria-current={on ? 'true' : undefined}
                     className={
                       on
-                        ? 'rounded-full bg-chinni px-3 py-1 text-xs text-white'
+                        ? 'rounded-full bg-chinni px-3 py-1 text-xs text-chinni-ustida'
                         : 'rounded-full px-3 py-1 text-xs text-tosh transition-colors hover:text-chinni'
                     }
                   >

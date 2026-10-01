@@ -3,7 +3,7 @@ import { getStats } from '@/lib/queries';
 import { getScript } from '@/lib/script';
 import { districtLabel } from '@/lib/districts';
 import { transliterate } from '@/lib/transliterate';
-import { educationLabel, formatNumber } from '@/lib/format';
+import { EDUCATION_LEVELS, educationLabel, formatNumber } from '@/lib/format';
 import { EducationSplit, HorizontalBars, SalaryColumns } from '@/components/charts/StatsCharts';
 
 export const revalidate = 3600;
@@ -112,13 +112,21 @@ export default async function StatsPage() {
     value: Math.round(p.avg_salary),
   }));
 
-  const education = s.education.map((e) => ({
-    name: educationLabel(e.education, script) || e.education,
-    value: e.count,
-  }));
+  // Ordinal ramp darajaga bog'liq: Oliy → O'rta-maxsus → Talab etilmaydi, noma'lum ('Kiritilmagan') oxirida.
+  // SQL count bo'yicha tartiblaydi — shuning uchun bu yerda daraja tartibiga keltiramiz.
+  const levelRank = (db: string) => {
+    const i = EDUCATION_LEVELS.findIndex((e) => e.db === db);
+    return i === -1 ? EDUCATION_LEVELS.length : i;
+  };
+  const education = [...s.education]
+    .sort((a, b) => levelRank(a.education) - levelRank(b.education))
+    .map((e) => ({
+      name: educationLabel(e.education, script) || e.education,
+      value: e.count,
+    }));
   const educationTotal = education.reduce((sum, e) => sum + e.value, 0);
 
-  const salaryBuckets = s.salaryBuckets.map((b) => ({ name: b.bucket, value: b.count }));
+  const salaryBuckets = s.salaryBuckets.map((b) => ({ name: transliterate(b.bucket, script), value: b.count }));
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -133,9 +141,9 @@ export default async function StatsPage() {
           { k: t.avgSalary, v: s.totals.avgSalary ? formatNumber(s.totals.avgSalary) : '—' },
           { k: t.withSalary, v: formatNumber(s.totals.withSalary) },
         ].map((c) => (
-          <div key={c.k}>
-            <dd className="font-display text-lg font-600 text-matn">{c.v}</dd>
+          <div key={c.k} className="flex flex-col-reverse">
             <dt className="mt-0.5 text-xs text-tosh">{c.k}</dt>
+            <dd className="font-display text-lg font-600 text-matn">{c.v}</dd>
           </div>
         ))}
       </dl>
@@ -173,6 +181,7 @@ export default async function StatsPage() {
           <EducationSplit
             data={education}
             total={educationTotal}
+            ariaLabel={t.education}
             tableCaption={t.table}
             tableHead={[t.level, t.count]}
           />

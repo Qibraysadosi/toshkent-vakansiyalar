@@ -15,6 +15,7 @@
 
 import { config as loadEnv } from 'dotenv';
 import { closePool, query } from '../src/lib/db';
+import { parseDate } from '../src/lib/import-transform';
 
 loadEnv({ path: '.env.local', quiet: true });
 loadEnv({ path: '.env', quiet: true });
@@ -78,7 +79,15 @@ function pick(body: unknown): Partial<EnrichedFields> | null {
     address: str('address', 'legal_address', 'manzil', 'addr'),
     activity_type: str('activity', 'activity_type', 'oked_name', 'faoliyat'),
     status: str('status', 'state', 'holati'),
-    registered_date: str('registered_date', 'registration_date', 'reg_date'),
+    // API sanani qanday berishi noma'lum ("12.05.2010", "2010-05-12T00:00:00", "—" ...).
+    // Tekshirilmagan satr `::date` ga yuborilsa Postgres yiqiladi — shuning uchun
+    // faqat haqiqiy "YYYY-MM-DD" o'tadi, qolgani null (ustun tegilmaydi).
+    registered_date: (() => {
+      const raw = str('registered_date', 'registration_date', 'reg_date');
+      if (!raw) return null;
+      const iso = /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : raw;
+      return parseDate(iso);
+    })(),
   };
 
   return Object.values(fields).some(Boolean) ? fields : null;
@@ -147,47 +156,62 @@ async function enrich(limit: number | null): Promise<void> {
 
   let ok = 0;
   let empty = 0;
+  const failed: string[] = [];
 
   for (const [i, c] of companies.entries()) {
-    let fields: Partial<EnrichedFields> | null = null;
+    // Bitta korxonadagi xato (yaroqsiz javob, baza xatosi) butun yurishni
+    // to'xtatmasin: yozib qo'yamiz, enriched_at tegilmaydi — keyingi yurishda qayta olinadi.
+    try {
+      let fields: Partial<EnrichedFields> | null = null;
 
-    for (const source of SOURCES) {
-      const body = await fetchJson(source.url(c.stir));
-      if (body) fields = source.parse(body);
-      if (fields) break;
-      await sleep(DELAY_MS);
-    }
+      for (const source of SOURCES) {
+        const body = await fetchJson(source.url(c.stir));
+        if (body) fields = source.parse(body);
+        if (fields) break;
+        await sleep(DELAY_MS);
+      }
 
-    if (fields) {
-      await query(
-        `update companies set official_name = coalesce($2, official_name),
-                              address = coalesce($3, address),
-                              activity_type = coalesce($4, activity_type),
-                              registered_date = coalesce($5::date, registered_date),
-                              status = coalesce($6, status),
-                              enriched_at = now()
-         where stir = $1`,
-        [
-          c.stir,
-          fields.official_name ?? null,
-          fields.address ?? null,
-          fields.activity_type ?? null,
-          fields.registered_date ?? null,
-          fields.status ?? null,
-        ],
-      );
-      ok++;
-    } else {
-      empty++;
+      if (fields) {
+        await query(
+          `update companies set official_name = coalesce($2, official_name),
+                                address = coalesce($3, address),
+                                activity_type = coalesce($4, activity_type),
+                                registered_date = coalesce($5::date, registered_date),
+                                status = coalesce($6, status),
+                                enriched_at = now()
+           where stir = $1`,
+          [
+            c.stir,
+            fields.official_name ?? null,
+            fields.address ?? null,
+            fields.activity_type ?? null,
+            fields.registered_date ?? null,
+            fields.status ?? null,
+          ],
+        );
+        ok++;
+      } else {
+        empty++;
+      }
+    } catch (err) {
+      failed.push(c.stir);
+      console.error(`\n  ${c.stir}: yozib bo'lmadi — ${err instanceof Error ? err.message : String(err)}`);
     }
 
     if ((i + 1) % 25 === 0 || i === companies.length - 1) {
-      process.stdout.write(`  ${i + 1}/${companies.length}  (topildi: ${ok}, bo'sh: ${empty})\r`);
+      process.stdout.write(
+        `  ${i + 1}/${companies.length}  (topildi: ${ok}, bo'sh: ${empty}, xato: ${failed.length})\r`,
+      );
     }
     await sleep(DELAY_MS);
   }
 
-  console.log(`\n\nTugadi. Boyitildi: ${ok}, ma'lumot topilmadi: ${empty}.`);
+  console.log(`\n\nTugadi. Boyitildi: ${ok}, ma'lumot topilmadi: ${empty}, xato: ${failed.length}.`);
+  if (failed.length) {
+    // Bular enriched_at'siz qoladi va keyingi yurishda yana birinchi bo'lib
+    // olinadi — operator ko'rib chiqishi uchun ro'yxat.
+    console.log(`Xato bo'lgan STIR'lar (qayta urinish uchun enriched_at bo'sh qoldirildi): ${failed.join(', ')}`);
+  }
   if (ok === 0) {
     console.log(
       "Hech narsa topilmadi — manbalar yopiq bo'lishi mumkin. `npm run enrich:probe` bilan tekshiring.",

@@ -45,7 +45,7 @@ export function Pagination({
         <Link
           href={pageHref(params, page - 1)}
           rel="prev"
-          className="rounded-md border border-chiziq bg-yuza px-3 py-1.5 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni"
+          className="rounded-md border border-chiziq bg-yuza px-3 py-2 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni"
         >
           {cyr ? 'Олдинги' : 'Oldingi'}
         </Link>
@@ -63,8 +63,8 @@ export function Pagination({
             aria-current={p === page ? 'page' : undefined}
             className={
               p === page
-                ? 'raqam rounded-md bg-chinni px-3 py-1.5 text-xs text-white'
-                : 'raqam rounded-md border border-chiziq bg-yuza px-3 py-1.5 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
+                ? 'raqam rounded-md bg-chinni px-3 py-2 text-xs text-chinni-ustida'
+                : 'raqam rounded-md border border-chiziq bg-yuza px-3 py-2 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
             }
           >
             {p}
@@ -76,7 +76,7 @@ export function Pagination({
         <Link
           href={pageHref(params, page + 1)}
           rel="next"
-          className="rounded-md border border-chiziq bg-yuza px-3 py-1.5 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni"
+          className="rounded-md border border-chiziq bg-yuza px-3 py-2 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni"
         >
           {cyr ? 'Кейинги' : 'Keyingi'}
         </Link>

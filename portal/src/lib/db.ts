@@ -39,6 +39,47 @@ function connectionString(): string {
   return url;
 }
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+/** `pg` shu parametrlarni URL'dan o'qib, bizning `ssl` obyektimizni BEKOR qiladi. */
+const URL_SSL_PARAMS = ['ssl', 'sslmode', 'sslrootcert', 'sslcert', 'sslkey', 'sslnegotiation'];
+
+/**
+ * TLS sozlamasi. Lokal Postgres'da TLS yo'q; masofadagi (Supabase pooler)
+ * ulanishda sertifikat MAJBURIY tekshiriladi — `rejectUnauthorized: false`
+ * bo'lsa o'rtadagi hujumchi o'z sertifikati bilan parol va barcha ma'lumotni
+ * o'qiy oladi.
+ *
+ * Supabase sertifikati o'z CA'si (prod-ca-2021.crt) bilan imzolangan — u
+ * Node'ning tizim do'konida yo'q, shuning uchun PEM matni `PG_CA_CERT` env
+ * orqali beriladi (Supabase -> Settings -> Database -> SSL configuration).
+ * Bo'sh qolsa Node'ning standart CA ro'yxati ishlatiladi: ochiq CA bilan
+ * imzolangan sertifikat o'tadi, o'z-o'zini imzolagan esa aniq xato bilan
+ * rad etiladi (jim yumshatilmaydi).
+ *
+ * DIQQAT: `pg` URL'dagi `sslmode=`/`sslrootcert=` ni shu obyektdan USTUN
+ * qo'yadi (`sslmode=require` esa tekshiruvni o'chiradi) — shuning uchun
+ * DATABASE_URL da bunday parametrlar taqiqlanadi.
+ */
+function sslConfig(url: string): false | { rejectUnauthorized: true; ca?: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('DATABASE_URL yaroqli URL emas (postgresql://user:parol@host:port/baza).');
+  }
+  const present = URL_SSL_PARAMS.filter((k) => parsed.searchParams.has(k));
+  if (present.length) {
+    throw new Error(
+      `DATABASE_URL dan ${present.map((k) => `${k}=`).join(', ')} olib tashlang — ` +
+        'TLS `src/lib/db.ts` da sozlanadi (CA uchun PG_CA_CERT).',
+    );
+  }
+  if (LOCAL_HOSTS.has(parsed.hostname)) return false;
+  // Vercel'da PEM ko'p qatorli yoki `\n` bilan bir qatorda kelishi mumkin
+  const ca = process.env.PG_CA_CERT?.replace(/\\n/g, '\n').trim();
+  return ca ? { rejectUnauthorized: true, ca } : { rejectUnauthorized: true };
+}
+
 /**
  * Dev'da Next.js HMR modulni qayta yuklaydi — global'da saqlanmasa har
  * yangilanishda yangi pool ochilib, ulanishlar tugab qoladi.
@@ -48,8 +89,7 @@ export function getPool(): Pool {
     const url = connectionString();
     globalThis.__vakansiyaPool = new Pool({
       connectionString: url,
-      // Supabase'da TLS majburiy, lokal Postgres'da yo'q
-      ssl: url.includes('localhost') || url.includes('127.0.0.1') ? undefined : { rejectUnauthorized: false },
+      ssl: sslConfig(url),
       max: Number(process.env.PGPOOL_MAX ?? 8),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
@@ -73,16 +113,25 @@ export async function queryOne<T extends QueryResultRow>(text: string, params: u
 /** Tranzaksiya — importda ishlatiladi. */
 export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
+  let broken = false;
   try {
     await client.query('begin');
     const result = await fn(client);
     await client.query('commit');
     return result;
   } catch (err) {
-    await client.query('rollback');
+    try {
+      await client.query('rollback');
+    } catch {
+      // Rollback ham o'tmadi — ulanish uzilgan. Asl xato (masalan INSERT'niki)
+      // saqlanadi, buzilgan client esa pool'ga qaytarilmaydi.
+      broken = true;
+    }
     throw err;
   } finally {
-    client.release();
+    // `release(true)` clientni yo'q qiladi; sog'lom client (oddiy SQL xatosidan
+    // keyin toza rollback) avvalgidek pool'ga qaytadi.
+    client.release(broken);
   }
 }
 
