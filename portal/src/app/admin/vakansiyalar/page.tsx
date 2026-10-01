@@ -78,7 +78,7 @@ export default async function AdminVacanciesPage({ searchParams }: { searchParam
             placeholder="masalan: 36401 yoki qorovul"
             className="min-w-0 flex-1 rounded-karta border border-chiziq bg-yuza px-4 py-2.5 text-sm text-matn outline-none focus:border-chinni"
           />
-          <button type="submit" className="rounded-karta bg-chinni px-5 py-2.5 text-sm font-500 text-white hover:bg-chinni-toq">
+          <button type="submit" className="rounded-karta bg-chinni px-5 py-2.5 text-sm font-500 text-chinni-ustida hover:bg-chinni-toq">
             Qidirish
           </button>
         </form>

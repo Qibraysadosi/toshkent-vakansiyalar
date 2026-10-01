@@ -59,18 +59,18 @@ export default async function DistrictPage({ params }: { params: Promise<{ slug:
       </h1>
 
       <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
-        <div>
-          <dd className="raqam text-lg text-chinni">{formatNumber(stat?.positions ?? 0)}</dd>
+        <div className="flex flex-col-reverse">
           <dt className="text-xs text-tosh">{cyr ? 'иш ўрни' : "ish o'rni"}</dt>
+          <dd className="raqam text-lg text-chinni">{formatNumber(stat?.positions ?? 0)}</dd>
         </div>
-        <div>
-          <dd className="raqam text-lg">{formatNumber(stat?.vacancies ?? 0)}</dd>
+        <div className="flex flex-col-reverse">
           <dt className="text-xs text-tosh">{cyr ? 'эълон' : "e'lon"}</dt>
+          <dd className="raqam text-lg">{formatNumber(stat?.vacancies ?? 0)}</dd>
         </div>
         {stat?.avgSalary && (
-          <div>
-            <dd className="raqam text-lg">{formatNumber(stat.avgSalary)}</dd>
+          <div className="flex flex-col-reverse">
             <dt className="text-xs text-tosh">{cyr ? 'ўртача маош' : "o'rtacha maosh"}</dt>
+            <dd className="raqam text-lg">{formatNumber(stat.avgSalary)}</dd>
           </div>
         )}
       </dl>

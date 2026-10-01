@@ -133,7 +133,7 @@ export function SearchBox({
         }}
         className={`flex overflow-hidden rounded-karta border bg-yuza transition-shadow ${
           listOpen
-            ? 'border-chinni shadow-[0_8px_28px_-12px_rgba(19,145,165,0.45)]'
+            ? 'border-chinni shadow-[0_8px_28px_-12px_color-mix(in_srgb,var(--chinni)_45%,transparent)]'
             : 'border-chiziq focus-within:border-chinni'
         }`}
       >
@@ -161,7 +161,7 @@ export function SearchBox({
         />
         <button
           type="submit"
-          className={`shrink-0 bg-chinni font-500 text-white transition-colors hover:bg-chinni-toq ${
+          className={`shrink-0 bg-chinni font-500 text-chinni-ustida transition-colors hover:bg-chinni-toq ${
             big ? 'px-7 text-sm' : 'px-4 text-xs'
           }`}
         >

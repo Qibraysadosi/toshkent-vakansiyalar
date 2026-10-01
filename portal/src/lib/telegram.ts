@@ -44,7 +44,7 @@ function token(): string {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __vakansiyaBot: Bot | undefined;
 }
 

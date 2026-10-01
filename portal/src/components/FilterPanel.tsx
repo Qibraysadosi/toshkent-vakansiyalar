@@ -102,6 +102,7 @@ export function FilterPanel({
    */
   useEffect(() => {
     if (!sheetOpen) return;
+    const trigger = triggerRef.current; // cleanup vaqtida ref o'zgargan bo'lishi mumkin — hozir nusxalaymiz
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
@@ -133,7 +134,7 @@ export function FilterPanel({
     return () => {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKey);
-      triggerRef.current?.focus();
+      trigger?.focus();
     };
   }, [sheetOpen]);
 
@@ -213,7 +214,7 @@ export function FilterPanel({
                 aria-pressed={on}
                 className={
                   on
-                    ? 'raqam rounded-full bg-chinni px-3 py-1 text-xs text-white'
+                    ? 'raqam rounded-full bg-chinni px-3 py-1.5 text-xs text-chinni-ustida'
                     : 'raqam rounded-full border border-chiziq bg-yuza px-3 py-1 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
                 }
               >
@@ -236,7 +237,7 @@ export function FilterPanel({
                 aria-pressed={on}
                 className={
                   on
-                    ? 'rounded-full bg-chinni px-3 py-1 text-xs text-white'
+                    ? 'rounded-full bg-chinni px-3 py-1.5 text-xs text-chinni-ustida'
                     : 'rounded-full border border-chiziq bg-yuza px-3 py-1 text-xs text-tosh transition-colors hover:border-chinni hover:text-chinni'
                 }
               >
@@ -369,7 +370,7 @@ export function FilterPanel({
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
-                className="mt-6 w-full rounded-karta bg-chinni py-3 text-sm font-500 text-white"
+                className="mt-6 w-full rounded-karta bg-chinni py-3 text-sm font-500 text-chinni-ustida"
               >
                 {t.apply}
               </button>

@@ -35,9 +35,10 @@ Hammasi `portal/` ichidan ishga tushiriladi.
 | --- | --- |
 | `DATABASE_URL` | Postgres ulanish satri. Lokal yoki Supabase — bir xil ishlaydi |
 | `NEXT_PUBLIC_SITE_URL` | Kanonik manzil (sitemap, robots, OG rasmlar, bot havolalari). Vercel'da bo'sh qoldirsa bo'ladi — `VERCEL_PROJECT_PRODUCTION_URL` olinadi |
-| `ADMIN_PASSWORD` | `/admin` paroli. **Bo'sh bo'lsa admin panel butunlay yopiq** |
+| `ADMIN_PASSWORD` | `/admin` paroli. **Bo'sh bo'lsa admin panel butunlay yopiq** (12+ belgi tavsiya) |
+| `PG_CA_CERT` | Supabase CA sertifikati (PEM). Berilsa masofadagi ulanishda sertifikat qat'iy tekshiriladi; bo'sh bo'lsa shifrlangan-lekin-tekshirilmagan (ogohlantirish). URL'dagi `sslmode=` e'tiborga olinmaydi |
 | `TG_BOT_TOKEN` | Telegram bot tokeni (@BotFather). Bo'sh bo'lsa bot va bildirishnoma o'chiq |
-| `TG_WEBHOOK_SECRET` | Webhook'ni begona POST'lardan himoya qiladi — istalgan uzun tasodifiy satr |
+| `TG_WEBHOOK_SECRET` | **Majburiy** (TG_BOT_TOKEN bilan birga, Vercel'da ham): bo'sh bo'lsa `/api/telegram` 503 qaytaradi; chiquvchi bildirishnomalar unga bog'liq emas |
 
 `DATABASE_URL` bo'lmasa `layout.tsx` sahifa o'rniga `SetupNotice` (sozlash
 yo'riqnomasi) ko'rsatadi — `dbConfigured()` (`env.ts`). Build bazasiz ham o'tadi.
@@ -84,6 +85,11 @@ Har vakansiyaning `fingerprint` i bor:
 - Yangi faylda yo'q vakansiyalar o'chadi — **batch nomiga emas, aynan shu
   importda tegilgan id'larga qarab** (`delete ... where not (id = any(...))`).
   Shuning uchun bir xil batch nomi bilan qayta yuklash xavfsiz.
+- **`first_batch`** faqat insert'da yoziladi (vakansiya birinchi paydo bo'lgan
+  batch); Telegram bildirishnomalari "yangi" deb shuni oladi — ko'chib o'tgan
+  vakansiya har oy qayta yuborilmaydi. `subscriptions.last_batch` — admin tugmasi
+  batch bo'yicha idempotent va davom ettiriladigan (45 s byudjet, `remaining`
+  qaytadi); `npm run notify` cheklovsiz.
 
 Skript va admin panel bitta kodni ishlatadi: `src/lib/import-run.ts`
 (`parseWorkbook` → `transformRows` → `writeImport`). Admin panelda ikki
@@ -146,8 +152,11 @@ ularni `/api/v1/vacancies?ids=` orqali oladi) va `korilgan` (bosh sahifadagi
 
 ## Admin (`/admin`)
 
-`layout.tsx` — kirish tekshiruvi (HMAC cookie, `timingSafeEqual`), barcha
-bo'limlar shu qobiqda. Bo'limlar: Umumiy · Import (oldindan ko'rish → tasdiqlash)
+`layout.tsx` — kirish tekshiruvi (HMAC cookie `exp.hmac`, 8 soat, `timingSafeEqual`),
+barcha bo'limlar shu qobiqda; har sahifa/action `isAdmin()` ni o'zi ham tekshiradi.
+Kirish urinishlari cheklangan (`rate-limit.ts`, xotirada). "Umumiy" bo'limida
+**Keshni tozalash** tugmasi — `queries.ts` dagi 10 daqiqalik so'rov keshini
+(`revalidateTag('vacancies')`) darhol yangilaydi (skript orqali importdan keyin). Bo'limlar: Umumiy · Import (oldindan ko'rish → tasdiqlash)
 · Vakansiyalar (id/matn bo'yicha topish, yashirish/ochish) · Sinonimlar
 (natijasiz so'rovlardan taklif, `?term=` bilan oldindan to'ldiriladi) ·
 Qidiruv loglari · Telegram (bot holati, webhook tekshiruvi, obunachilar,

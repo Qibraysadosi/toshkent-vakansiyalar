@@ -26,7 +26,7 @@ export function AdminNav() {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={`block rounded-full px-3.5 py-2 text-xs font-500 transition-colors lg:rounded-md ${
-                  active ? 'bg-chinni text-white' : 'text-tosh hover:bg-yuza hover:text-matn'
+                  active ? 'bg-chinni text-chinni-ustida' : 'text-tosh hover:bg-yuza hover:text-matn'
                 }`}
               >
                 {item.label}

@@ -21,6 +21,7 @@
   --chinni-toq: #0c6b7a;
   /* chinni fonidagi matn rangi — tungi rejimda oq o'rniga siyoh (5.3:1) */
   --chinni-ustida: #ffffff;
+  --xato: #b3453f; /* xato/ogohlantirish matni (admin) */
   --quyosh: #eba937;
   --quyosh-matn: #8a6011;
   --qogoz: #f7f4ee;
@@ -50,6 +51,7 @@
     --chinni: #1fa3b8;
     --chinni-toq: #5fcadb;
     --chinni-ustida: var(--siyoh);
+    --xato: #f28b82;
     --quyosh-matn: #f2c567;
 
     --fon: #0e1a2b;
@@ -76,6 +78,7 @@
   --chinni: #1fa3b8;
   --chinni-toq: #5fcadb;
   --chinni-ustida: var(--siyoh);
+  --xato: #f28b82;
   --quyosh-matn: #f2c567;
 
   --fon: #0e1a2b;

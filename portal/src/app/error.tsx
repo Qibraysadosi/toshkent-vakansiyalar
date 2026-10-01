@@ -54,7 +54,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
     <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
       <h1 className="font-display text-xl font-600 sm:text-2xl">{t.title}</h1>
       <p className="mx-auto mt-3 max-w-md text-sm text-tosh">{dbProblem ? (dev ? t.dbDev : t.db) : t.generic}</p>
-      {error.digest && <p className="raqam mt-3 text-xs text-tosh/70">{error.digest}</p>}
+      {error.digest && <p className="raqam mt-3 text-xs text-tosh">{error.digest}</p>}
       <button
         type="button"
         onClick={reset}

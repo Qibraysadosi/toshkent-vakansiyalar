@@ -52,7 +52,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { stir } = await params;
   const c = await getCompany(stir);
-  if (!c) return { title: 'Topilmadi' };
+  if (!c || c.vacancy_count === 0) return { title: 'Topilmadi', robots: { index: false } };
   return {
     title: `${c.name} — vakansiyalar`,
     description: `${c.name} (STIR ${c.stir}) korxonasidagi ${c.positions_count} ta bo'sh ish o'rni.`,
@@ -74,7 +74,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ stir: 
   if (!/^\d{9}$/.test(stir)) notFound();
 
   const company = await getCompany(stir);
-  if (!company) notFound();
+  // Ko'rinadigan vakansiyasi qolmagan korxona (eski import yoki hammasi yashirilgan) — 404
+  if (!company || company.vacancy_count === 0) notFound();
 
   const script = await getScript();
   const t = TEXT[script];

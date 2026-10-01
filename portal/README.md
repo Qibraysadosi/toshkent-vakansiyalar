@@ -19,7 +19,7 @@ npm install
 cp .env.example .env.local     # standart qiymatlar lokal Postgres uchun tayyor
 
 npm run db:up                  # Postgres (Docker)
-npm run db:schema              # jadvallar, indekslar, sinonimlar
+npm run db:schema              # jadvallar, indekslar, sinonimlar (.env.local ni o'zi o'qiydi, psql shart emas)
 
 # Excel faylni portal/data/ ga qo'ying
 npm run import:dry -- data/vakansiyalar.xlsx   # avval hisobotni ko'ring
@@ -125,6 +125,8 @@ Muhit o'zgaruvchilari — `.env.example` bo'yicha; `ADMIN_PASSWORD` va
    bo'lmasin; kattasi uchun kompyuterda `npm run import -- fayl.xlsx`).
 4. Har push'da avtomatik deploy uchun Vercel'ga GitHub ilovasini ulang:
    vercel.com → Add New → Project → Import Git Repository → `Jhonjonsin2006/fintellect`
-   (loyiha allaqachon bor — Settings → Git → Connect ham bo'ladi).
+   (loyiha allaqachon bor — Settings → Git → Connect ham bo'ladi). `portal/` hozircha
+   faqat `claude/new-session-e6mypq` shoxida — Settings → Git → Production Branch'ni
+   shu shoxga qo'ying yoki PR'ni `main` ga qo'shing.
 5. Telegram: `TG_BOT_TOKEN` ni qo'shib redeploy qiling, keyin bir marta
    `npm run telegram:setup`.

@@ -1,12 +1,12 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { headers } from 'next/headers';
 import { isAdmin, signIn, signOut } from '@/lib/admin-auth';
 import { clientIpFromHeaders, hitBucket } from '@/lib/rate-limit';
 import { commitStaged, discardStaged, stageImport } from '@/lib/import-run';
 import type { ImportReport } from '@/lib/import-transform';
-import { deleteSynonym, setVacancyHidden, upsertSynonym } from '@/lib/queries';
+import { CACHE_TAG, deleteSynonym, setVacancyHidden, upsertSynonym } from '@/lib/queries';
 import { sendNotifications } from '@/lib/notify';
 
 export interface ActionState {
@@ -36,9 +36,16 @@ const LOGIN_PER_IP = 5;
 const LOGIN_GLOBAL = 30;
 
 function revalidateAll() {
+  revalidateTag(CACHE_TAG); // queries.ts dagi 1 soatlik so'rov keshi
   for (const p of ['/', '/vakansiyalar', '/statistika', '/admin', '/admin/import', '/admin/vakansiyalar', '/sitemap.xml']) {
     revalidatePath(p);
   }
+}
+
+/** So'rov keshini (queries.ts, 10 daqiqa) darhol tozalash — skript orqali importdan keyin. */
+export async function clearCacheAction(): Promise<void> {
+  if (!(await isAdmin())) return;
+  revalidateAll();
 }
 
 export async function loginAction(_prev: ActionState, form: FormData): Promise<ActionState> {
@@ -153,6 +160,7 @@ export async function setHiddenAction(form: FormData): Promise<void> {
   const hidden = String(form.get('hidden')) === '1';
   if (!Number.isInteger(id) || id <= 0) return;
   await setVacancyHidden(id, hidden);
+  revalidateTag(CACHE_TAG);
   revalidatePath('/admin/vakansiyalar');
   revalidatePath(`/vakansiya/${id}`);
   revalidatePath('/vakansiyalar');
@@ -168,8 +176,14 @@ export async function notifyAction(_prev: ActionState, _form: FormData): Promise
   try {
     const r = await sendNotifications();
     revalidatePath('/admin/obunachilar');
-    if (r.sent === 0 && r.skipped === 0) return { ok: 'Faol obunachi yo‘q.' };
-    return { ok: `Yuborildi: ${r.sent} ta, mos vakansiya topilmagani: ${r.skipped} ta, xato: ${r.failed} ta.` };
+    if (r.sent === 0 && r.skipped === 0 && r.failed === 0 && r.remaining === 0) {
+      return { ok: "Bu batch uchun hamma obunachi ko'rib chiqilgan (yoki faol obunachi yo'q)." };
+    }
+    return {
+      ok:
+        `Yuborildi: ${r.sent} ta, mos vakansiya topilmagani: ${r.skipped} ta, xato: ${r.failed} ta.` +
+        (r.remaining > 0 ? ` Yana ${r.remaining} ta obunachi qoldi — tugmani qayta bosing.` : ''),
+    };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }

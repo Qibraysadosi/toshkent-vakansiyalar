@@ -6,7 +6,8 @@ import { transliterate } from '@/lib/transliterate';
 import { EDUCATION_LEVELS, educationLabel, formatNumber } from '@/lib/format';
 import { EducationSplit, HorizontalBars, SalaryColumns } from '@/components/charts/StatsCharts';
 
-export const revalidate = 3600;
+// Layout cookie o'qiydi — ISR ishlamaydi; getStats() `queries.ts` da 10 daqiqa keshlanadi.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Statistika',

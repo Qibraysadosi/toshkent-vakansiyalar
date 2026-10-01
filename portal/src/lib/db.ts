@@ -23,7 +23,7 @@ pg.types.setTypeParser(pg.types.builtins.DATE, (value: string) => value);
  */
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __vakansiyaPool: Pool | undefined;
 }
 
@@ -60,24 +60,35 @@ const URL_SSL_PARAMS = ['ssl', 'sslmode', 'sslrootcert', 'sslcert', 'sslkey', 's
  * qo'yadi (`sslmode=require` esa tekshiruvni o'chiradi) — shuning uchun
  * DATABASE_URL da bunday parametrlar taqiqlanadi.
  */
-function sslConfig(url: string): false | { rejectUnauthorized: true; ca?: string } {
+let sslWarned = false;
+
+function sslConfig(url: string): false | { rejectUnauthorized: boolean; ca?: string } {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
     throw new Error('DATABASE_URL yaroqli URL emas (postgresql://user:parol@host:port/baza).');
   }
-  const present = URL_SSL_PARAMS.filter((k) => parsed.searchParams.has(k));
-  if (present.length) {
-    throw new Error(
-      `DATABASE_URL dan ${present.map((k) => `${k}=`).join(', ')} olib tashlang — ` +
-        'TLS `src/lib/db.ts` da sozlanadi (CA uchun PG_CA_CERT).',
-    );
-  }
   if (LOCAL_HOSTS.has(parsed.hostname)) return false;
+
+  // URL'dagi sslmode/sslrootcert kabi parametrlar e'tiborga olinmaydi — TLS shu yerda sozlanadi
+  const present = URL_SSL_PARAMS.filter((k) => parsed.searchParams.has(k));
+  if (present.length && !sslWarned) {
+    console.warn(`[db] DATABASE_URL dagi ${present.map((k) => `${k}=`).join(', ')} e'tiborga olinmaydi — TLS src/lib/db.ts da sozlanadi.`);
+  }
+
   // Vercel'da PEM ko'p qatorli yoki `\n` bilan bir qatorda kelishi mumkin
   const ca = process.env.PG_CA_CERT?.replace(/\\n/g, '\n').trim();
-  return ca ? { rejectUnauthorized: true, ca } : { rejectUnauthorized: true };
+  if (ca) return { rejectUnauthorized: true, ca };
+
+  // CA berilmagan: ulanish shifrlangan, lekin sertifikat tekshirilmaydi (MITM'dan
+  // himoya yo'q). Supabase → Settings → Database → SSL → CA sertifikatini PG_CA_CERT
+  // ga qo'ying — shunda qat'iy tekshiruv yoqiladi.
+  if (!sslWarned) {
+    sslWarned = true;
+    console.warn('[db] PG_CA_CERT o\'rnatilmagan — TLS sertifikati tekshirilmayapti. Supabase CA sertifikatini PG_CA_CERT ga qo\'ying.');
+  }
+  return { rejectUnauthorized: false };
 }
 
 /**

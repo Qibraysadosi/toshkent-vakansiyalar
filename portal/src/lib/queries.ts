@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import { query, queryOne } from './db';
 import { normalize } from './normalize';
 
@@ -230,7 +231,7 @@ export interface Totals {
   avgSalary: number | null;
 }
 
-export async function getTotals(): Promise<Totals> {
+async function getTotalsUncached(): Promise<Totals> {
   const row = await queryOne<{
     vacancies: string; positions: string; companies: string;
     with_salary: string; avg_salary: string | null;
@@ -258,7 +259,7 @@ export interface DistrictCount {
   avgSalary: number | null;
 }
 
-export async function getDistrictCounts(): Promise<DistrictCount[]> {
+async function getDistrictCountsUncached(): Promise<DistrictCount[]> {
   const rows = await query<{ district: string; vacancies: string; positions: string; avg_salary: string | null }>(
     `select district, count(*) as vacancies, sum(positions_count) as positions, avg(salary) as avg_salary
      from vacancies where not is_hidden group by district order by sum(positions_count) desc`,
@@ -282,7 +283,7 @@ export interface PositionGroup {
  * Bosh sahifadagi "top kasblar". `position_search` bo'yicha guruhlanadi,
  * ko'rsatiladigan yozuv sifatida eng ko'p uchragan original olinadi.
  */
-export async function getTopPositions(limit = 12): Promise<PositionGroup[]> {
+async function getTopPositionsUncached(limit = 12): Promise<PositionGroup[]> {
   const rows = await query<{ position_search: string; label: string; vacancies: string; positions: string }>(
     `select position_search,
             mode() within group (order by position) as label,
@@ -360,7 +361,7 @@ export interface TopSearch {
 }
 
 /** Bosh sahifadagi "Ko'p qidirilayotganlar" chiplari. */
-export async function getTopSearches(limit = 8, days = 30): Promise<TopSearch[]> {
+async function getTopSearchesUncached(limit = 8, days = 30): Promise<TopSearch[]> {
   const rows = await query<{ query_norm: string; label: string; hits: string; results_count: string }>(
     `select query_norm,
             coalesce(mode() within group (order by query), query_norm) as label,
@@ -410,7 +411,8 @@ export async function getCompany(stir: string): Promise<CompanyDetail | null> {
 
 /** SEO sahifalari uchun barcha STIR (sitemap). */
 export async function getAllCompanyStirs(): Promise<string[]> {
-  const rows = await query<{ stir: string }>('select stir from companies order by stir');
+  // Sitemap: faqat ko'rinadigan vakansiyasi bor korxonalar (bo'sh sahifa e'lon qilinmasin)
+  const rows = await query<{ stir: string }>('select distinct stir from vacancies where not is_hidden order by stir');
   return rows.map((r) => r.stir);
 }
 
@@ -434,7 +436,7 @@ export async function getVacanciesByIds(ids: number[]): Promise<VacancyListItem[
 }
 
 /** "Yangi" nishoni uchun: bazadagi eng so'nggi e'lon sanasi. */
-export async function getLatestPostedDate(): Promise<string | null> {
+async function getLatestPostedDateUncached(): Promise<string | null> {
   const row = await queryOne<{ latest: string | null }>(
     'select max(posted_date) as latest from vacancies where not is_hidden',
   );
@@ -446,7 +448,7 @@ export interface QuotaCount {
   count: number;
 }
 
-export async function getQuotaCounts(): Promise<QuotaCount[]> {
+async function getQuotaCountsUncached(): Promise<QuotaCount[]> {
   const rows = await query<{ quota: string; count: string }>(
     `select quota, count(*) as count from vacancies
      where quota is not null and not is_hidden group by quota order by count(*) desc`,
@@ -476,7 +478,7 @@ const SALARY_BUCKETS: [string, number, number | null][] = [
   ['10 mln dan yuqori', 10_000_000, null],
 ];
 
-export async function getStats(): Promise<StatsBundle> {
+async function getStatsUncached(): Promise<StatsBundle> {
   const [totals, districts, topPositions, educationRows, bucketRows, topPayingRows] = await Promise.all([
     getTotals(),
     getDistrictCounts(),
@@ -747,3 +749,32 @@ export async function getLatestBatch(): Promise<string | null> {
   const row = await queryOne<{ batch: string }>('select batch from import_history order by created_at desc limit 1');
   return row?.batch ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// Kesh — og'ir ommaviy o'qishlar
+// ---------------------------------------------------------------------------
+
+/**
+ * Layout cookie o'qigani (alifbo/mavzu) uchun sahifa darajasidagi ISR ishlamaydi;
+ * shuning uchun kesh SO'ROV darajasida: quyidagi o'qishlar Next Data Cache'da
+ * 10 daqiqa saqlanadi (Vercel'da har so'rovda Supabase'ga borilmaydi). Admin
+ * import/yashirish/"Keshni tozalash" `revalidateTag(CACHE_TAG)` bilan darhol
+ * tozalaydi; skript orqali import qilinsa eng ko'pi bilan 10 daqiqa eskiradi. Bu funksiyalarni
+ * tsx skriptlardan chaqirmang (Next keshi yo'q — xato beradi).
+ */
+export const CACHE_TAG = 'vacancies';
+/** Skript orqali import (revalidateTag chaqirilmaydi) eng ko'pi bilan shuncha eskiradi. */
+export const CACHE_SECONDS = 600;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function cached<T extends (...args: any[]) => Promise<any>>(fn: T, key: string): T {
+  return unstable_cache(fn, ['vakansiyalar', key], { revalidate: CACHE_SECONDS, tags: [CACHE_TAG] }) as T;
+}
+
+export const getTotals = cached(getTotalsUncached, 'getTotals');
+export const getDistrictCounts = cached(getDistrictCountsUncached, 'getDistrictCounts');
+export const getTopPositions = cached(getTopPositionsUncached, 'getTopPositions');
+export const getTopSearches = cached(getTopSearchesUncached, 'getTopSearches');
+export const getLatestPostedDate = cached(getLatestPostedDateUncached, 'getLatestPostedDate');
+export const getQuotaCounts = cached(getQuotaCountsUncached, 'getQuotaCounts');
+export const getStats = cached(getStatsUncached, 'getStats');

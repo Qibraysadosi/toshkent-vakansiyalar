@@ -8,6 +8,7 @@ import {
 } from '@/lib/queries';
 import { formatNumber } from '@/lib/format';
 import { Card, Empty, Stat, TableWrap, td, th, thRow } from './ui';
+import { clearCacheAction } from './actions';
 
 export default async function AdminHome() {
   const [totals, quality, history, logs, subs] = await Promise.all([
@@ -38,6 +39,17 @@ export default async function AdminHome() {
       </dl>
 
       <div className="grid gap-5 lg:grid-cols-2">
+        {/* queries.ts dagi 10 daqiqalik so'rov keshi — skript orqali importdan keyin qo'lda yangilash */}
+        <form action={clearCacheAction} className="flex flex-wrap items-center gap-3 text-xs text-tosh">
+          <span>Sayt sahifalari so&apos;rovlarni 10 daqiqa keshlaydi. Skript orqali importdan keyin darhol yangilash:</span>
+          <button
+            type="submit"
+            className="rounded-full border border-chiziq bg-yuza px-3 py-1.5 text-xs text-matn transition-colors hover:border-chinni hover:text-chinni"
+          >
+            Keshni tozalash
+          </button>
+        </form>
+
         <Card
           title="Oxirgi importlar"
           action={

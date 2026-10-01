@@ -147,7 +147,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/api/v1/vacancies?limit=5" className="text-qogoz/70 hover:text-white">
                   {cyr ? 'Очиқ API' : 'Ochiq API'}
                 </Link>
-                <Link href="/admin" className="text-qogoz/40 hover:text-white">
+                <Link href="/admin" className="text-qogoz/60 hover:text-white">
                   Admin
                 </Link>
               </nav>

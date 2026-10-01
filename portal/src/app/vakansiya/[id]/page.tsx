@@ -24,7 +24,9 @@ import { SaveButton } from '@/components/SaveButton';
 import { CopyLink } from '@/components/CopyLink';
 import { TrackView } from '@/components/RecentlyViewed';
 
-export const revalidate = 86400; // PLAN §10 — detallar 24 soat
+// Layout cookie o'qiydi (alifbo/mavzu) — ISR baribir ishlamaydi, sahifa dinamik.
+// Og'ir o'qishlar `queries.ts` da unstable_cache bilan keshlanadi.
+export const dynamic = 'force-dynamic';
 
 const TEXT = {
   lat: {
@@ -211,7 +213,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
       {jobPosting && (
         <script
           type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
+           
           dangerouslySetInnerHTML={{ __html: safeJsonLd(jobPosting) }}
         />
       )}
@@ -261,7 +263,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
             <a
               key={p}
               href={`tel:+${p.replace(/\D/g, '')}`}
-              className="raqam col-span-2 rounded-karta bg-chinni px-5 py-2.5 text-center text-sm text-white transition-colors hover:bg-chinni-toq sm:col-span-1"
+              className="raqam col-span-2 rounded-karta bg-chinni px-5 py-2.5 text-center text-sm text-chinni-ustida transition-colors hover:bg-chinni-toq sm:col-span-1"
             >
               {formatPhone(p)}
             </a>

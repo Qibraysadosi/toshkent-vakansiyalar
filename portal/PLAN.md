@@ -282,12 +282,50 @@ Hammasi lokalda ishlaydi: `npm run db:up && npm run db:schema && npm run import 
 - Telegram bot (grammY, webhook) + `npm run notify` + `npm run telegram:setup`.
 - `/api/v1/vacancies?ids=` — saqlanganlar uchun.
 
+### 2026-09 audit va tuzatishlar
+
+To'liq audit: 9 yo'nalish (runtime, xavfsizlik, ma'lumot, frontend, i18n, SEO/tezlik,
+Telegram, a11y, ops) → 105 topilma, 49 tasi 3 mustaqil tekshiruvchi tomonidan
+tasdiqlandi, qolganlari qo'lda ko'rib chiqildi. Tuzatilganlar:
+
+- **Qidiruv**: sahifa raqami natijadan oshsa oxirgi sahifaga qisqartiriladi
+  (ilgari total=0 va noto'g'ri fuzzy), so'rov uzunligi 100, `search_logs.query`
+  (asl matn) — chiplar endi to'g'ri kirillcha, log faqat 1-sahifa/standart
+  saralash/robot bo'lmagan so'rovda `after()` ichida, 180 kunlik saqlash.
+- **Xavfsizlik**: admin cookie muddatli (`exp.hmac`, 8 soat), kirish urinishlari
+  cheklovi, JSON-LD ekranlash (`</script>` chiqib ketmaydi), vakansiya id
+  tekshiruvi (500 → 404), OG rasm yashirin vakansiyani bermaydi, Telegram
+  webhook secret'siz 503 (ilgari hammani qabul qilardi), RLS `not is_hidden`.
+- **Import/bildirishnoma**: `first_batch` (faqat insert'da) — ko'chib o'tgan
+  vakansiya har oy "yangi" deb yuborilmaydi; bildirishnoma 45 s byudjet bilan
+  bo'lib-bo'lib, `subscriptions.last_batch` bilan idempotent; `parseDate`
+  yaroqsiz sanani rad etadi (ilgari butun import yiqilardi); `db:schema`/`db:reset`
+  psql'siz (`scripts/db.ts`), `import_staging` ham reset bo'ladi.
+- **Transliteratsiya**: yo'q → йўқ, ЛАБОРАТОРИЯ → LABORATORIYA, oʼ/o´ apostroflar,
+  ketsa → кетса, lotin brendlar (Coca-Cola, Windows) o'zgarmaydi.
+- **UI / a11y / i18n**: `font-500/600/700` tokenlari (sarlavhalar 400 da chiqardi),
+  kontrast (chinni #0D7A8C, `chinni-ustida`, `tosh` to'liq), SearchBox combobox
+  (aria-activedescendant, Back/Forward'da sinxron), filtr sheet (Escape, fokus,
+  scroll lock, safe-area), 44px teginish maydonlari, dl tartibi, live region,
+  aria-current, xarita `role=group`, kirillcha "сўм"/"ставка"/oy nomlari/chiplar,
+  error sahifasi ikki alifboda, StatsCharts hydration (`matchMedia`), CountUp
+  StrictMode, raqamlarda NBSP, `latin-ext` shrift yuklanmaydi.
+- **Vercel/ops**: build `DATABASE_URL`'siz o'tadi, `DATABASE_URL` yo'q bo'lsa
+  `SetupNotice` yo'riqnomasi, 4 MB yuklash chegarasi (Vercel 4,5 MB), so'rov
+  keshi (`unstable_cache`, 10 daqiqa, import/yashirish/"Keshni tozalash" da `revalidateTag`),
+  `NEXT_PUBLIC_SITE_URL` shart emas, ESLint 9, bulutli sessiya uchun SessionStart
+  hook (`.claude/hooks/session-start.sh`).
+
 ### Qolgan ish (kalit kerak)
 
 - **Boyitish manbasi**: `npm run enrich:probe` ni O'zbekistondan ishga tushiring.
 - **Telegram**: @BotFather'dan token → `TG_BOT_TOKEN`, `TG_WEBHOOK_SECRET` →
   deploydan keyin `npm run telegram:setup`.
-- Deploy (Supabase + Vercel), domen, Lighthouse o'lchovi (sandbox'da o'lchanmadi).
+- Deploy: Vercel loyihasi `toshkent-vakansiyalar` yaratilgan (Root Directory
+  `portal`, `ADMIN_PASSWORD`/`TG_WEBHOOK_SECRET` o'rnatilgan). **Sizdan:**
+  Supabase loyihasi → `schema.sql` → `DATABASE_URL` (Transaction pooler) →
+  Vercel env → Redeploy; Vercel'ga GitHub ilovasini ulash (har push'da deploy).
+- Domen, Lighthouse o'lchovi (sandbox'da o'lchanmadi).
 
 ### PLAN'dan chetlanishlar
 

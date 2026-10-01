@@ -68,7 +68,7 @@ export default async function HomePage() {
         <div aria-hidden className="koshin-fon pointer-events-none absolute inset-0" />
         <div className="relative mx-auto max-w-6xl px-4 pb-14 pt-12 sm:px-6 sm:pt-20">
         <h1 className="hero-sarlavha font-display font-700">
-          {t.h1a}
+          {t.h1a}{' '}
           <br />
           <span className="text-chinni">{t.h1b}</span>
         </h1>
@@ -94,10 +94,9 @@ export default async function HomePage() {
             },
             { v: '12', k: script === 'cyr' ? 'туман' : 'tuman' },
           ].map((s) => (
-            <div key={s.k}>
-              <dt className="sr-only">{s.k}</dt>
+            <div key={s.k} className="flex flex-col-reverse">
+              <dt className="text-xs text-tosh">{s.k}</dt>
               <dd className="font-display text-lg font-600 text-matn">{s.v}</dd>
-              <p className="text-xs text-tosh">{s.k}</p>
             </div>
           ))}
         </dl>

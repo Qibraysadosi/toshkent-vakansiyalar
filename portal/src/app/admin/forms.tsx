@@ -44,7 +44,7 @@ function Message({ state }: { state: ActionState }) {
 const input =
   'mt-1.5 w-full rounded-karta border border-chiziq bg-yuza px-3 py-2 text-sm text-matn outline-none focus:border-chinni';
 const primary =
-  'rounded-karta bg-chinni px-5 py-2.5 text-sm font-500 text-white transition-colors hover:bg-chinni-toq disabled:opacity-60';
+  'rounded-karta bg-chinni px-5 py-2.5 text-sm font-500 text-chinni-ustida transition-colors hover:bg-chinni-toq disabled:opacity-60';
 const secondary =
   'rounded-karta border border-chiziq px-5 py-2.5 text-sm text-tosh transition-colors hover:border-chinni hover:text-chinni disabled:opacity-60';
 
@@ -307,7 +307,7 @@ export function HideToggle({ id, hidden }: { id: number; hidden: boolean }) {
         type="submit"
         className={`rounded-full border px-3 py-1 text-xs transition-colors ${
           hidden
-            ? 'border-chinni text-chinni hover:bg-chinni hover:text-white'
+            ? 'border-chinni text-chinni hover:bg-chinni hover:text-chinni-ustida'
             : 'border-chiziq text-tosh hover:border-[#d9a4a4] hover:text-[#b3453f]'
         }`}
       >
