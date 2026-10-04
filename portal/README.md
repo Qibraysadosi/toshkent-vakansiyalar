@@ -133,9 +133,8 @@ Muhit o'zgaruvchilari — `.env.example` bo'yicha; `ADMIN_PASSWORD` va
 3. `/admin` → Import orqali Excel yuklang (Vercel'da fayl **4,5 MB** dan katta
    bo'lmasin; kattasi uchun kompyuterda `npm run import -- fayl.xlsx`).
 4. Har push'da avtomatik deploy uchun Vercel'ga GitHub ilovasini ulang:
-   vercel.com → Add New → Project → Import Git Repository → `Jhonjonsin2006/fintellect`
-   (loyiha allaqachon bor — Settings → Git → Connect ham bo'ladi). `portal/` hozircha
-   faqat `claude/new-session-e6mypq` shoxida — Settings → Git → Production Branch'ni
-   shu shoxga qo'ying yoki PR'ni `main` ga qo'shing.
+   vercel.com → Add New → Project → Import Git Repository →
+   `Qibraysadosi/toshkent-vakansiyalar` (Root Directory: `portal`, production
+   branch: `main`).
 5. Telegram: `TG_BOT_TOKEN` ni qo'shib redeploy qiling, keyin bir marta
    `npm run telegram:setup`.
