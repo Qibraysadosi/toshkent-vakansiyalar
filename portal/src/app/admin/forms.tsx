@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { xato } from './ui';
+import { districtLabel } from '@/lib/districts';
 import {
   addSynonymAction,
   confirmImportAction,
@@ -77,13 +78,19 @@ function ReportTable({ r }: { r: NonNullable<ImportPreviewState['report']> }) {
     ['Birlashtirilgan takrorlar', fmt(r.duplicatesMerged)],
     ['Bazaga yoziladigan vakansiya', fmt(r.rowsMerged), 'kuchli'],
     ['Korxonalar', fmt(r.companies)],
-    ['Tumanlar', fmt(r.districts), r.districts !== 12 ? 'xato' : undefined],
+    [
+      'Tumanlar',
+      r.districtNames?.length ? r.districtNames.map((d) => districtLabel(d)).join(', ') : fmt(r.districts),
+      (r.unknownDistricts?.length ?? 0) > 0 || (r.scopeWithoutRows?.length ?? 0) > 0 ? 'xato' : undefined,
+    ],
     ['Maosh: raqam bilan', fmt(r.salaryNumeric)],
     ["Maosh: shtat jadvali bo'yicha", fmt(r.salaryScheduleNote)],
     ['Maosh: >100 mln (rad etildi)', fmt(r.salaryTooHigh)],
     ['Maosh: <10 ming (rad etildi)', fmt(r.salaryTooLow)],
     ['Lavozim: kirill / lotin', `${fmt(r.positionsCyrillic)} / ${fmt(r.positionsLatin)}`],
   ];
+  if (r.missingColumns?.length) rows.push(["Faylda yo'q ustunlar (bo'sh qoldi)", r.missingColumns.join(', ')]);
+  if (r.headerRow && r.headerRow > 1) rows.push(['Ustun nomlari qatori', `${r.headerRow}-qator`]);
   return (
     <table className="w-full text-sm">
       <tbody>
@@ -128,18 +135,42 @@ export function ImportWizard({ lastBatch }: { lastBatch: string | null }) {
   // Oldindan ko'rish tayyor → tasdiqlash bosqichi
   if (preview.token && preview.report) {
     const r = preview.report;
-    const risky = r.skipped > r.rowsRead * 0.05 || r.districts !== 12;
+    const manySkipped = r.skipped > r.rowsRead * 0.05;
+    const scope = r.scope ?? [];
+    const cityScope = scope.length > 1;
     return (
       <div>
         <p className="text-sm">
           Batch: <span className="raqam">{preview.batch}</span>. Bazaga hali <b>hech narsa yozilmadi</b> —
           hisobotni tekshirib, tasdiqlang.
         </p>
-        {risky && (
-          <p className="mt-3 rounded-md border border-quyosh/50 bg-quyosh/10 px-3 py-2 text-xs text-quyosh-matn">
-            Diqqat: fayl kutilganidan farq qiladi (ko&apos;p o&apos;tkazib yuborilgan qator yoki 12 ta tuman emas).
-            Ustunlar joyi o&apos;zgarmaganini tekshiring.
+        {r.title && <p className="mt-2 text-xs text-tosh">Fayl: {r.title}</p>}
+        {scope.length > 0 && (
+          <p className="mt-2 text-xs text-tosh">
+            Almashtiriladi:{' '}
+            <b className="text-matn">
+              {cityScope ? `Toshkent shahri (${scope.length} tuman)` : scope.map((d) => districtLabel(d)).join(', ')}
+            </b>
+            . Shu hududda faylda yo&apos;q vakansiyalar o&apos;chadi; boshqa hududlarga tegilmaydi.
           </p>
+        )}
+        {(manySkipped || (r.scopeWithoutRows?.length ?? 0) > 0 || (r.unknownDistricts?.length ?? 0) > 0) && (
+          <div className="mt-3 rounded-md border border-quyosh/50 bg-quyosh/10 px-3 py-2 text-xs text-quyosh-matn">
+            <p>Diqqat: fayl kutilganidan farq qiladi.</p>
+            {manySkipped && <p>Ko&apos;p qator o&apos;tkazib yuborildi — ustunlar joyini tekshiring.</p>}
+            {(r.scopeWithoutRows?.length ?? 0) > 0 ? (
+              <p>
+                Faylda bu tumanlar yo&apos;q, ulardagi vakansiyalar o&apos;chadi:{' '}
+                {r.scopeWithoutRows?.map((d) => districtLabel(d)).join(', ')}.
+              </p>
+            ) : null}
+            {(r.unknownDistricts?.length ?? 0) > 0 ? (
+              <p>
+                Ro&apos;yxatda yo&apos;q tuman: {r.unknownDistricts?.join(', ')} — saytda xom nom bilan chiqadi
+                (dasturchiga ayting: <span className="raqam">src/lib/districts.ts</span>).
+              </p>
+            ) : null}
+          </div>
         )}
         <div className="mt-4">
           <ReportTable r={r} />

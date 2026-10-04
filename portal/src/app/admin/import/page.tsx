@@ -14,7 +14,7 @@ export default async function AdminImportPage() {
 
   return (
     <div className="grid gap-5">
-      <Card title="Oylik import" lead="Yangi oy faylini yuklang. Eski batch faqat yangi yozuvlar muvaffaqiyatli yozilgandan keyin o'chiriladi; korxonalar saqlanib qoladi.">
+      <Card title="Oylik import" lead="Oylik faylni yuklang: Toshkent shahri (12 tuman) yoki Qibray tumani fayli. Har fayl faqat o'z hududini almashtiradi — eski yozuvlar yangilari muvaffaqiyatli yozilgandan keyin o'chiriladi; korxonalar saqlanib qoladi.">
         <ImportWizard lastBatch={last} />
       </Card>
 

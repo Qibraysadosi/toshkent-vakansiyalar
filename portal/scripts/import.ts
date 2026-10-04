@@ -14,8 +14,8 @@
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { config as loadEnv } from 'dotenv';
-import { transformRows, type ImportReport } from '../src/lib/import-transform';
-import { parseWorkbook, writeImport } from '../src/lib/import-run';
+import type { ImportReport } from '../src/lib/import-transform';
+import { prepareImport, writeImport } from '../src/lib/import-run';
 import { closePool, transaction } from '../src/lib/db';
 
 loadEnv({ path: '.env.local', quiet: true });
@@ -65,6 +65,14 @@ function printReport(r: ImportReport, batch: string, dryRun: boolean) {
   console.log(pad('Bazaga yoziladigan vakansiya', r.rowsMerged));
   console.log(pad('Korxonalar (unikal STIR)', r.companies));
   console.log(pad('Tumanlar', r.districts));
+  if (r.title) console.log(pad('Fayl sarlavhasi', r.title.slice(0, 70)));
+  if (r.headerRow && r.headerRow > 1) console.log(pad('Ustun nomlari qatori', r.headerRow));
+  if (r.missingColumns?.length) console.log(pad("Faylda yo'q ustunlar (bo'sh)", r.missingColumns.join(', ')));
+  if (r.scope?.length) console.log(pad('Almashtiriladigan hudud', `${r.scope.length} tuman`));
+  if (r.scopeWithoutRows?.length) {
+    console.log(pad("DIQQAT: faylda yo'q, o'chadi", r.scopeWithoutRows.join(', ')));
+  }
+  if (r.unknownDistricts?.length) console.log(pad("Ro'yxatda yo'q tuman", r.unknownDistricts.join(', ')));
   console.log('  ' + '-'.repeat(48));
   console.log(pad('Maosh: raqam bilan', r.salaryNumeric));
   console.log(pad("Maosh: shtat jadvali bo'yicha", r.salaryScheduleNote));
@@ -90,11 +98,10 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   console.log(`Fayl o'qilmoqda: ${args.file}`);
-  const { header, rows } = parseWorkbook(readFileSync(resolve(args.file)));
-  console.log(`  ${rows.length} qator, ${header.length} ustun.`);
-
-  const { companies, vacancies, report } = transformRows(rows, header, args.batch);
-  printReport(report, args.batch, args.dryRun);
+  const { companies, vacancies, report, batch, header } = prepareImport(readFileSync(resolve(args.file)), args.batch);
+  console.log(`  ${report.rowsRead} qator, ${header.length} ustun.`);
+  if (batch !== args.batch) console.log(`  Batch nomiga tuman qo'shildi: ${args.batch} → ${batch}`);
+  printReport(report, batch, args.dryRun);
 
   if (args.out) {
     mkdirSync(dirname(resolve(args.out)), { recursive: true });
@@ -108,11 +115,11 @@ async function main() {
   }
   if (vacancies.length === 0) throw new Error('Bironta ham yaroqli qator yo‘q — import bekor qilindi.');
 
-  const { deleted } = await transaction((client) =>
-    writeImport(client, companies, vacancies, args.batch, report, (msg) => process.stdout.write(`  ${msg}\r`)),
+  const { deleted, scope } = await transaction((client) =>
+    writeImport(client, companies, vacancies, batch, report, (msg) => process.stdout.write(`  ${msg}\r`)),
   );
-  console.log(`\nEski vakansiyalar o'chirildi: ${deleted} ta`);
-  console.log(`Import tugadi. Batch: ${args.batch}`);
+  console.log(`\nEski vakansiyalar o'chirildi: ${deleted} ta (faqat ${scope.length} ta tuman ichida)`);
+  console.log(`Import tugadi. Batch: ${batch}`);
 }
 
 main()

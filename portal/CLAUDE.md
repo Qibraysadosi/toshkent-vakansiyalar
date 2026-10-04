@@ -70,6 +70,38 @@ Vercel'da **Transaction pooler** (port 6543) manzilini ishlating.
 skriptlaridan ham chaqiriladi — ularga `server-only` qo'shilsa skriptlar
 yiqiladi.
 
+## Tumanlar va hududlar
+
+`src/lib/districts.ts`: Toshkent shahrining 12 tumani (`region: 'shahar'`) +
+**Qibray tumani** (`region: 'viloyat'`, Toshkent viloyati — alohida fayl bilan
+keladi). `db` — bazadagi/fayldagi AYNAN yozuv (`Қибрай тумани`). Xaritada viloyat
+tumani punktir chegara bilan chiziladi; JSON-LD va tavsifda hudud
+`regionLabel()` dan ("Toshkent" / "Toshkent viloyati").
+
+Yangi viloyat tumani qo'shish: `DISTRICTS` ga yozuv (`slug`, fayldagi `db`,
+`lat`, `cyr`, `region: 'viloyat'`, xarita uchun `points` + `label`, viewBox
+0 0 1000 780), keyin `districts.test.ts` dagi sonlarni yangilang. Filtr, xarita,
+`/tuman/<slug>`, sitemap, statistika va Telegram tugmalari o'zi oladi.
+
+## Import — hudud bo'yicha almashtirish
+
+- **Qamrov (`importScope`)**: fayl faqat o'z hududini almashtiradi. Shahar
+  tumani bor fayl → butun shahar (12 tuman; o'sha oyda vakansiyasi yo'q tuman
+  ham tozalanadi). Qibray fayli → faqat Qibray. Ro'yxatda yo'q tuman → faqat o'zi.
+  `writeImport` dagi delete: `where district = any(scope) and not (id = any(touched))`.
+  Qibray fayli Toshkentni, Toshkent fayli Qibrayni o'chirmaydi.
+- **Batch nomi (`scopedBatch`)**: faqat bitta viloyat tumanidan iborat faylda
+  tuman qo'shiladi: `2026-10` → `2026-10-qibray` (import tarixi va
+  `first_batch` aralashmasin).
+- **Sarlavha qatori (`findHeaderRow`)**: birinchi 15 qatordan eng ko'p ustun
+  nomi mos kelgani. Qibray faylida tepada "... МАЪЛУМОТ" nom qatori bor.
+- **Majburiy ustunlar** (`REQUIRED_FIELDS`): tuman, STIR, korxona, lavozim.
+  Qolganlari ixtiyoriy — yo'q bo'lsa bo'sh qoladi va hisobotda "Faylda yo'q
+  ustunlar" qatorida ko'rinadi. Qibray faylida bo'lim, sana va kvota yo'q
+  (sana o'rniga faqat "Ой") — `posted_date` NULL, "Eng yangi" saralashda oxirida.
+- Korxona tumani har importdan keyin haqiqiy vakansiyalaridan qayta hisoblanadi
+  (eng ko'p ish o'rni bo'lgan tuman) — korxona ikkala faylda bo'lsa ham.
+
 ## Import — barqaror id'lar
 
 Har vakansiyaning `fingerprint` i bor:
@@ -83,7 +115,8 @@ Har vakansiyaning `fingerprint` i bor:
 - Bitta fayl ichida faqat sanasi farq qiladigan qatorlar ham birlashadi
   (eng so'nggi sana qoladi).
 - Yangi faylda yo'q vakansiyalar o'chadi — **batch nomiga emas, aynan shu
-  importda tegilgan id'larga qarab** (`delete ... where not (id = any(...))`).
+  importda tegilgan id'larga qarab**, faqat fayl qamrovidagi tumanlarda
+  (`delete ... where district = any(scope) and not (id = any(...))`).
   Shuning uchun bir xil batch nomi bilan qayta yuklash xavfsiz.
 - **`first_batch`** faqat insert'da yoziladi (vakansiya birinchi paydo bo'lgan
   batch); Telegram bildirishnomalari "yangi" deb shuni oladi — ko'chib o'tgan

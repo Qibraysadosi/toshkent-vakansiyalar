@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import { getSimilarVacancies, getVacancy, incrementViews } from '@/lib/queries';
 import { getScript } from '@/lib/script';
-import { districtLabel, districtByDbName } from '@/lib/districts';
+import { districtLabel, districtByDbName, regionLabel } from '@/lib/districts';
 import { transliterate } from '@/lib/transliterate';
 import { quotaLabel } from '@/lib/quotas';
 import {
@@ -46,7 +46,6 @@ const TEXT = {
     allFromCompany: 'Shu korxonaning barcha vakansiyalari',
     back: 'Vakansiyalarga qaytish',
     views: 'marta ko’rilgan',
-    city: 'Toshkent',
   },
   cyr: {
     call: 'Рақамга қўнғироқ қилиш',
@@ -65,7 +64,6 @@ const TEXT = {
     allFromCompany: 'Шу корхонанинг барча вакансиялари',
     back: 'Вакансияларга қайтиш',
     views: 'марта кўрилган',
-    city: 'Тошкент',
   },
 } as const;
 
@@ -99,9 +97,9 @@ function safeJsonLd(data: unknown): string {
 /** Bot/preview so'rovlari views hisobiga kirmaydi (sitemap crawl 12k ta UPDATE bermasin). */
 const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|telegram|whatsapp|preview|curl|wget|python-requests|headless/i;
 
-/** `import_batch` "YYYY-MM" → keyingi oyning oxirgi kuni (JobPosting.validThrough). */
+/** `import_batch` "YYYY-MM" (yoki "YYYY-MM-qibray") → keyingi oyning oxirgi kuni (JobPosting.validThrough). */
 function validThroughFromBatch(batch: string | null | undefined): string | null {
-  const m = /^(\d{4})-(\d{2})$/.exec(batch ?? '');
+  const m = /^(\d{4})-(\d{2})(?:-[a-z0-9-]+)?$/.exec(batch ?? '');
   if (!m) return null;
   // Date.UTC(yil, oy+1, 0): oy 1-asosli → indeks+1 = keyingi oy, kun 0 = o'sha oyning oxirgi kuni
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) + 1, 0));
@@ -120,12 +118,11 @@ export async function generateMetadata({
 
   // Sarlavha/tavsif bitta alifboda — aks holda "ҚОРОВУЛ — Olmazor … so'm" aralashmasi chiqadi
   const script = await getScript();
-  const t = TEXT[script];
   const salary = formatSalary(v.salary === null ? null : Number(v.salary), v.salary_note);
   const title = `${transliterate(v.position, script)} — ${districtLabel(v.district, script)}`;
   const description =
     `${transliterate(v.company_name, script)}. ${transliterate(salary.text, script)}. ` +
-    `${districtLabel(v.district, script)}, ${t.city}.`;
+    `${districtLabel(v.district, script)}, ${regionLabel(v.district, script)}.`;
 
   return {
     title,
@@ -178,7 +175,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
         '@context': 'https://schema.org',
         '@type': 'JobPosting',
         title: transliterate(v.position, script),
-        description: `${transliterate(v.position, script)}. ${transliterate(v.company_name, script)}. ${districtLabel(v.district, script)}, ${t.city}.`,
+        description: `${transliterate(v.position, script)}. ${transliterate(v.company_name, script)}. ${districtLabel(v.district, script)}, ${regionLabel(v.district, script)}.`,
         datePosted: v.posted_date,
         ...(validThrough && { validThrough }),
         employmentType: Number(v.stavka) >= 1 ? 'FULL_TIME' : 'PART_TIME',
@@ -192,7 +189,7 @@ export default async function VacancyPage({ params }: { params: Promise<{ id: st
           address: {
             '@type': 'PostalAddress',
             addressLocality: districtLabel(v.district, script),
-            addressRegion: t.city,
+            addressRegion: regionLabel(v.district, script),
             addressCountry: 'UZ',
           },
         },

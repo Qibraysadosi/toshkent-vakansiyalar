@@ -7,6 +7,7 @@
 
 import { createHash } from 'node:crypto';
 import { cleanText, hasCyrillic, normalize } from './normalize';
+import { districtByDbName, importScope } from './districts';
 import type { CompanyRow, VacancyRow } from './database.types';
 
 /** Excel'dagi 11 ustun — kirillcha sarlavhalar (PLAN §1, o'zgartirilmasin). */
@@ -32,6 +33,13 @@ export const FIELD_ORDER: FieldName[] = [
   'position', 'posted_date', 'stavka', 'salary', 'education', 'quota',
 ];
 
+/**
+ * Bularsiz qator ma'nosiz — sarlavhada albatta bo'lishi kerak. Qolganlari
+ * ixtiyoriy: masalan, Qibray faylida "Бўлим номи", "Вакансия юборилган сана",
+ * "Квота йўналиши" yo'q (sana o'rniga faqat "Ой") — ular bo'sh qoldiriladi.
+ */
+export const REQUIRED_FIELDS: FieldName[] = ['district', 'stir', 'company', 'position'];
+
 /** PLAN §2.1 — bazada 8 ta qator 1,9 mlrd so'mgacha "maosh" ko'rsatgan. */
 export const MAX_PLAUSIBLE_SALARY = 100_000_000;
 
@@ -52,6 +60,20 @@ export interface ImportError {
 }
 
 export interface ImportReport {
+  /** Sarlavha qatori (Excel bo'yicha, 1 dan). Tepasida fayl nomi qatori bo'lishi mumkin. */
+  headerRow?: number;
+  /** Sarlavhadan yuqoridagi matn — "Қибрай туман 2026 йилнинг СЕНТЯБР ойи ... МАЪЛУМОТ". */
+  title?: string;
+  /** Faylda topilmagan ixtiyoriy ustunlar — qiymatlari bo'sh qoldirildi. */
+  missingColumns?: string[];
+  /** Fayldagi tumanlar (bazadagi yozuvda). */
+  districtNames?: string[];
+  /** `districts.ts` ro'yxatida yo'q tumanlar — saytda xom nom bilan chiqadi. */
+  unknownDistricts?: string[];
+  /** Import ALMASHTIRADIGAN tumanlar (`importScope`) — ulardan tashqariga tegilmaydi. */
+  scope?: string[];
+  /** Qamrovda bo'lib, faylda bitta ham qatori yo'q tumanlar — ulardagi vakansiyalar o'chadi. */
+  scopeWithoutRows?: string[];
   rowsRead: number;
   rowsMerged: number;
   duplicatesMerged: number;
@@ -176,32 +198,67 @@ export function parsePhone(raw: unknown): string | null {
 // Sarlavhalarni ustun indeksiga bog'lash
 // ---------------------------------------------------------------------------
 
+/** Normallashgan sarlavhalar ichidan maydon ustunini topadi (-1 — yo'q). */
+function locate(normalizedHeader: string[], field: FieldName): number {
+  const want = normalize(EXCEL_HEADERS[field]);
+  const at = normalizedHeader.indexOf(want);
+  if (at !== -1) return at;
+  // Qavs ichidagi izohsiz ham urinib ko'ramiz: "tuman (shahar)" → "tuman"
+  const short = want.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+  return normalizedHeader.findIndex((h) => h === short || h.startsWith(short));
+}
+
+function normalizeHeader(headerRow: unknown[]): string[] {
+  return headerRow.map((h) => normalize(cleanText(h)));
+}
+
 /**
  * Sarlavha qatorini o'qib, har bir maydon uchun ustun indeksini qaytaradi.
  * Solishtirish normalize() orqali — sarlavha lotinchada yozilsa ham topiladi.
+ *
+ * Majburiy ustunlar (`REQUIRED_FIELDS`) nom bo'yicha topilsa — ixtiyoriylari
+ * yo'q bo'lsa ham shu xarita ishlatiladi (`-1` → bo'sh qiymat, `missing` da).
+ * Majburiylari topilmasa — eski zaxira: 11 ustun PLAN §1 tartibida.
  */
-export function mapHeaders(headerRow: unknown[]): { index: Record<FieldName, number>; matchedByName: boolean } {
-  const normalizedHeader = headerRow.map((h) => normalize(cleanText(h)));
+export function mapHeaders(headerRow: unknown[]): {
+  index: Record<FieldName, number>;
+  matchedByName: boolean;
+  missing: FieldName[];
+} {
+  const normalizedHeader = normalizeHeader(headerRow);
   const index = {} as Record<FieldName, number>;
-  let matched = 0;
+  for (const field of FIELD_ORDER) index[field] = locate(normalizedHeader, field);
 
-  for (const field of FIELD_ORDER) {
-    const want = normalize(EXCEL_HEADERS[field]);
-    let at = normalizedHeader.indexOf(want);
-    if (at === -1) {
-      // Qavs ichidagi izohsiz ham urinib ko'ramiz: "tuman (shahar)" → "tuman"
-      const short = want.replace(/\s*\(.*?\)\s*/g, ' ').trim();
-      at = normalizedHeader.findIndex((h) => h === short || h.startsWith(short));
-    }
-    index[field] = at;
-    if (at !== -1) matched++;
+  if (REQUIRED_FIELDS.every((f) => index[f] !== -1)) {
+    return { index, matchedByName: true, missing: FIELD_ORDER.filter((f) => index[f] === -1) };
   }
-
-  if (matched === FIELD_ORDER.length) return { index, matchedByName: true };
 
   // Zaxira: 11 ustun kutilgan tartibda deb qabul qilamiz
   for (let i = 0; i < FIELD_ORDER.length; i++) index[FIELD_ORDER[i]] = i;
-  return { index, matchedByName: false };
+  return { index, matchedByName: false, missing: [] };
+}
+
+/**
+ * Sarlavha qatorini topadi: ba'zi fayllarda tepasida nom qatori bor
+ * ("Қибрай туман ... МАЪЛУМОТ"), sarlavha 2-qatorda. Birinchi `maxScan`
+ * qator ichidan eng ko'p ustun nomi mos kelgani olinadi; majburiy ustunlar
+ * hech qaysida to'liq topilmasa — 0 (birinchi qator, eski xatti-harakat).
+ */
+export function findHeaderRow(rows: unknown[][], maxScan = 15): number {
+  let best = 0;
+  let bestScore = -1;
+  for (let i = 0; i < Math.min(rows.length, maxScan); i++) {
+    const row = rows[i];
+    if (!Array.isArray(row)) continue;
+    const normalizedHeader = normalizeHeader(row);
+    if (!REQUIRED_FIELDS.every((f) => locate(normalizedHeader, f) !== -1)) continue;
+    const score = FIELD_ORDER.filter((f) => locate(normalizedHeader, f) !== -1).length;
+    if (score > bestScore) {
+      best = i;
+      bestScore = score;
+    }
+  }
+  return bestScore === -1 ? 0 : best;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,13 +304,20 @@ export function transformRows(
   dataRows: unknown[][],
   headerRow: unknown[],
   importBatch: string,
+  opts: {
+    /** Birinchi ma'lumot qatorining Excel raqami (sarlavha 1-qatorda bo'lsa — 2). */
+    firstExcelRow?: number;
+    /** Sarlavhadan yuqoridagi matn (hisobotda ko'rsatiladi). */
+    title?: string;
+  } = {},
 ): TransformResult {
-  const { index, matchedByName } = mapHeaders(headerRow);
+  const firstExcelRow = opts.firstExcelRow ?? 2;
+  const { index, matchedByName, missing } = mapHeaders(headerRow);
   const errors: ImportError[] = [];
 
   if (!matchedByName) {
     errors.push({
-      row: 1,
+      row: firstExcelRow - 1,
       reason:
         "Sarlavhalar nom bo'yicha topilmadi — ustunlar PLAN §1 tartibida deb o'qildi. " +
         'Faylni tekshiring.',
@@ -271,7 +335,7 @@ export function transformRows(
 
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i];
-    const excelRow = i + 2; // 1-qator sarlavha, Excel 1'dan sanaydi
+    const excelRow = i + firstExcelRow; // Excel 1'dan sanaydi, sarlavha undan oldingi qatorda
 
     // Butunlay bo'sh qatorlarni jimgina tashlaymiz
     if (!row || row.every((c) => c === null || c === undefined || String(c).trim() === '')) continue;
@@ -406,10 +470,22 @@ export function transformRows(
     });
   }
 
+  // --- Hudud: qaysi tumanlar almashtiriladi (PLAN §7, districts.importScope) ---
+  const districtNames = [...new Set(clean.map((r) => r.district))].sort();
+  const scope = importScope(districtNames);
+  const present = new Set(districtNames);
+
   return {
     companies,
     vacancies,
     report: {
+      headerRow: firstExcelRow - 1,
+      title: opts.title ? opts.title.slice(0, 300) : undefined,
+      missingColumns: missing.map((f) => EXCEL_HEADERS[f]),
+      districtNames,
+      unknownDistricts: districtNames.filter((d) => !districtByDbName(d)),
+      scope,
+      scopeWithoutRows: scope.filter((d) => !present.has(d)),
       rowsRead: dataRows.length,
       rowsMerged: vacancies.length,
       duplicatesMerged: clean.length - vacancies.length,

@@ -316,6 +316,16 @@ tasdiqlandi, qolganlari qo'lda ko'rib chiqildi. Tuzatilganlar:
   `NEXT_PUBLIC_SITE_URL` shart emas, ESLint 9, bulutli sessiya uchun SessionStart
   hook (`.claude/hooks/session-start.sh`).
 
+### 2026-10: Qibray tumani
+
+Toshkent viloyati, Qibray tumani fayli (2026 yil sentyabr, 1 042 qator → 880
+vakansiya, 127 korxona) uchun import kengaytirildi: sarlavha qatorini topish,
+ixtiyoriy ustunlar (bo'lim, sana, kvota yo'q), hudud bo'yicha almashtirish
+(`importScope` — Qibray fayli Toshkentni o'chirmaydi va aksincha), batch
+`-qibray` qo'shimchasi, korxona tumanini qayta hisoblash. Qibray xarita
+(punktir chegara), filtr, `/tuman/qibray`, statistika va Telegram tugmalariga
+qo'shildi. Testlar: `districts.test.ts`, Qibray formatidagi transform testlari.
+
 ### Qolgan ish (kalit kerak)
 
 - **Boyitish manbasi**: `npm run enrich:probe` ni O'zbekistondan ishga tushiring.

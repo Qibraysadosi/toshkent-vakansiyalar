@@ -92,7 +92,7 @@ export default async function HomePage() {
               v: totals.avgSalary ? formatNumber(totals.avgSalary) : '—',
               k: t.avg,
             },
-            { v: '12', k: script === 'cyr' ? 'туман' : 'tuman' },
+            { v: String(districts.filter((d) => d.positions > 0).length), k: script === 'cyr' ? 'туман' : 'tuman' },
           ].map((s) => (
             <div key={s.k} className="flex flex-col-reverse">
               <dt className="text-xs text-tosh">{s.k}</dt>

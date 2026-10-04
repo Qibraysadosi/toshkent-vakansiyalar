@@ -6,6 +6,7 @@ import {
   MIN_PLAUSIBLE_SALARY,
   SALARY_NOTE_SCHEDULE,
   SALARY_NOTE_UNCLEAR,
+  findHeaderRow,
   mapHeaders,
   parseDate,
   parsePhone,
@@ -275,5 +276,101 @@ describe('transformRows', () => {
   it('import_batch har bir vakansiyaga yoziladi', () => {
     const { vacancies } = transformRows([row()], HEADER, '2026-08-24');
     expect(vacancies[0].import_batch).toBe('2026-08-24');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Boshqa formatdagi fayl — Qibray tumani (Toshkent viloyati)
+// ---------------------------------------------------------------------------
+
+/** Qibray faylidagi haqiqiy tuzilish: tepada nom qatori, 10 ustun, sana o'rniga "Ой". */
+const QIBRAY_TITLE = ['Қибрай туман 2026 йилнинг СЕНТЯБР ойи ҳолатига ... МАЪЛУМОТ', null, null];
+const QIBRAY_HEADER = [
+  'Т/Р', 'Туман (шаҳар)', 'СТИР (ИНН)', 'Ташкилот (корхона) номи', 'Ташкилот телефон рақами',
+  'Ой', 'Лавозими', 'Ставка', 'Маош', 'Таълим',
+];
+function qibrayRow(n: number, over: Partial<Record<string, unknown>> = {}): unknown[] {
+  const base: Record<string, unknown> = {
+    tr: n,
+    district: 'Қибрай тумани',
+    stir: 310994032,
+    company: '"14-SONLI MAKTABGACHA TA\'LIM TASHKILOTI" DAVLAT MUASSASASI',
+    phone: '998935689994',
+    month: 'Сентябр',
+    position: 'Тарбиячи ёрдамчиси',
+    stavka: '1.15',
+    salary: 'Ish haqi shtat jadvaliga (ichki tarif rejasi) muvofiq belgilanadi',
+    education: 'Талаб этилмайди',
+  };
+  const keys = ['tr', 'district', 'stir', 'company', 'phone', 'month', 'position', 'stavka', 'salary', 'education'];
+  return keys.map((k) => (k in over ? over[k] : base[k]));
+}
+
+describe('Qibray formatidagi fayl', () => {
+  it('sarlavha qatorini nom qatoridan keyin topadi', () => {
+    expect(findHeaderRow([QIBRAY_TITLE, QIBRAY_HEADER, qibrayRow(1)])).toBe(1);
+    // Toshkent fayli: sarlavha birinchi qatorda — eski xatti-harakat
+    expect(findHeaderRow([HEADER, row()])).toBe(0);
+    // Hech qayerda sarlavha yo'q — 0 (zaxira)
+    expect(findHeaderRow([['a', 'b'], ['c', 'd']])).toBe(0);
+  });
+
+  it("ixtiyoriy ustunlar yo'q bo'lsa ham nom bo'yicha o'qiydi", () => {
+    const { index, matchedByName, missing } = mapHeaders(QIBRAY_HEADER);
+    expect(matchedByName).toBe(true);
+    expect(index.district).toBe(1);
+    expect(index.stir).toBe(2);
+    expect(index.position).toBe(6);
+    expect(index.education).toBe(9);
+    expect(index.department).toBe(-1);
+    expect(index.posted_date).toBe(-1);
+    expect(missing).toEqual(['department', 'posted_date', 'quota']);
+  });
+
+  it("qatorlarni to'g'ri o'giradi: sana yo'q, bo'lim va kvota bo'sh", () => {
+    const { vacancies, companies, report } = transformRows(
+      [qibrayRow(1), qibrayRow(2), qibrayRow(3, { position: 'Мусиқий раҳбар', stavka: '0.50', salary: '750000.00', education: 'Олий' })],
+      QIBRAY_HEADER,
+      '2026-10-qibray',
+      { firstExcelRow: 3, title: 'Қибрай туман ... МАЪЛУМОТ' },
+    );
+    expect(vacancies).toHaveLength(2);
+    const helper = vacancies.find((v) => v.position === 'Тарбиячи ёрдамчиси')!;
+    expect(helper.positions_count).toBe(2);
+    expect(helper.district).toBe('Қибрай тумани');
+    expect(helper.stir).toBe('310994032');
+    expect(helper.stavka).toBe(1.15);
+    expect(helper.salary).toBeNull();
+    expect(helper.salary_note).toBe(SALARY_NOTE_SCHEDULE);
+    expect(helper.posted_date).toBeNull();
+    expect(helper.department).toBeNull();
+    expect(helper.quota).toBeNull();
+    const music = vacancies.find((v) => v.position === 'Мусиқий раҳбар')!;
+    expect(music.salary).toBe(750000);
+    expect(companies[0].phone).toBe('998935689994');
+
+    expect(report.errors).toEqual([]);
+    expect(report.headerRow).toBe(2);
+    expect(report.missingColumns).toEqual(['Бўлим номи', 'Вакансия юборилган сана', 'Квота йўналиши']);
+    expect(report.districtNames).toEqual(['Қибрай тумани']);
+    expect(report.unknownDistricts).toEqual([]);
+    expect(report.scope).toEqual(['Қибрай тумани']);
+    expect(report.scopeWithoutRows).toEqual([]);
+  });
+
+  it('xato qatorlar Excel raqami bilan (sarlavha 2-qatorda bo\'lsa ham)', () => {
+    const { report } = transformRows([qibrayRow(1), qibrayRow(2, { stir: 'abc' })], QIBRAY_HEADER, 'b', {
+      firstExcelRow: 3,
+    });
+    expect(report.errors).toEqual([{ row: 4, reason: "STIR bo'sh yoki noto'g'ri", value: 'abc' }]);
+  });
+
+  it("shahar fayli butun shaharni qamraydi, faylda yo'q tumanlar hisobotda", () => {
+    const { report } = transformRows([row(), row({ district: 'Чилонзор тумани' })], HEADER, 'b');
+    expect(report.scope).toHaveLength(12);
+    expect(report.scope).not.toContain('Қибрай тумани');
+    expect(report.scopeWithoutRows).toHaveLength(10);
+    expect(report.missingColumns).toEqual([]);
+    expect(report.headerRow).toBe(1);
   });
 });

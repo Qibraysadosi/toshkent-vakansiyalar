@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import * as XLSX from 'xlsx';
-import { transformRows, type ImportReport } from './import-transform';
+import { findHeaderRow, transformRows, type ImportReport } from './import-transform';
+import { importScope, scopedBatch } from './districts';
+import { cleanText } from './normalize';
 import { query, queryOne, transaction } from './db';
 import type { CompanyRow, VacancyRow } from './database.types';
 import type { PoolClient } from 'pg';
@@ -27,20 +29,49 @@ export interface StagedImport {
   vacancies: number;
 }
 
-export function parseWorkbook(buffer: Buffer): { header: unknown[]; rows: unknown[][] } {
+export interface ParsedWorkbook {
+  header: unknown[];
+  rows: unknown[][];
+  /** Birinchi ma'lumot qatorining Excel raqami (1 dan). */
+  firstExcelRow: number;
+  /** Sarlavhadan yuqoridagi matn (fayl nomi qatori), bo'lmasa undefined. */
+  title?: string;
+}
+
+export function parseWorkbook(buffer: Buffer): ParsedWorkbook {
   const wb = XLSX.read(buffer, { type: 'buffer', raw: true });
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new Error("Excel faylda birorta ham sheet yo'q.");
   // DIQQAT: `header: 1` (massiv rejimi) — sarlavhalardan obyekt kaliti
   // yasalmaydi, ya'ni xlsx@0.18.5 dagi prototype-pollution yo'li ochilmaydi.
   const all = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], { header: 1, raw: true, defval: null });
-  if (all.length < 2) throw new Error("Faylda ma'lumot qatorlari yo'q.");
-  return { header: all[0], rows: all.slice(1) };
+  // Sarlavha har doim 1-qatorda emas: Qibray faylida tepada "... МАЪЛУМОТ" nom qatori bor
+  const h = findHeaderRow(all);
+  if (all.length < h + 2) throw new Error("Faylda ma'lumot qatorlari yo'q.");
+  const title = all
+    .slice(0, h)
+    .flatMap((r) => (Array.isArray(r) ? r : []))
+    .map((c) => cleanText(c))
+    .filter(Boolean)
+    .join(' ');
+  return { header: all[h], rows: all.slice(h + 1), firstExcelRow: h + 2, title: title || undefined };
 }
 
-export async function stageImport(buffer: Buffer, batch: string): Promise<StagedImport> {
-  const { header, rows } = parseWorkbook(buffer);
-  const { companies, vacancies, report } = transformRows(rows, header, batch);
+/**
+ * Fayl → tozalangan yozuvlar + hisobot. Skript va admin panel shu yerdan o'tadi.
+ * Faqat bitta viloyat tumanidan iborat faylda batch nomiga tuman qo'shiladi
+ * (`scopedBatch`: "2026-10" → "2026-10-qibray").
+ */
+export function prepareImport(buffer: Buffer, batch: string) {
+  const wb = parseWorkbook(buffer);
+  const result = transformRows(wb.rows, wb.header, batch, { firstExcelRow: wb.firstExcelRow, title: wb.title });
+  const finalBatch = scopedBatch(batch, result.report.districtNames ?? []);
+  if (finalBatch !== batch) for (const v of result.vacancies) v.import_batch = finalBatch;
+  return { ...result, batch: finalBatch, header: wb.header };
+}
+
+export async function stageImport(buffer: Buffer, requestedBatch: string): Promise<StagedImport> {
+  const { companies, vacancies, report, batch } = prepareImport(buffer, requestedBatch);
   if (vacancies.length === 0) throw new Error("Bironta ham yaroqli qator topilmadi — import bekor qilindi.");
 
   const token = randomBytes(16).toString('hex');
@@ -93,7 +124,7 @@ export async function writeImport(
   batch: string,
   report: ImportReport,
   onProgress?: (msg: string) => void,
-): Promise<{ deleted: number }> {
+): Promise<{ deleted: number; scope: string[] }> {
   // 1) companies — upsert. Boyitilgan ustunlar INSERT ro'yxatida yo'q, saqlanadi.
   for (let i = 0; i < companies.length; i += CHUNK) {
     const slice = companies.slice(i, i + CHUNK);
@@ -132,10 +163,35 @@ export async function writeImport(
     onProgress?.(`vacancies ${Math.min(i + CHUNK, vacancies.length)}/${vacancies.length}`);
   }
 
-  // 3) Yangi faylda yo'q vakansiyalar o'chadi (PLAN §7 — to'liq almashtirish).
+  // 3) Yangi faylda yo'q vakansiyalar o'chadi (PLAN §7 — to'liq almashtirish),
+  //    lekin FAQAT fayl qamrab olgan hududda (`importScope`): Toshkent shahri
+  //    fayli shaharning 12 tumanini, Qibray fayli faqat Qibrayni almashtiradi —
+  //    biri ikkinchisining vakansiyalarini o'chirmaydi.
   //    Batch nomiga emas, aynan shu importda tegilgan id'larga qaraladi —
   //    bir xil nom bilan qayta yuklansa ham eskirgan yozuv qolib ketmaydi.
-  const del = await client.query('delete from vacancies where not (id = any($1::bigint[]))', [touched]);
+  const scope = importScope(new Set(vacancies.map((v) => v.district)));
+  const del = await client.query<{ stir: string }>(
+    'delete from vacancies where district = any($2::text[]) and not (id = any($1::bigint[])) returning stir',
+    [touched, scope],
+  );
+
+  // 3b) Korxona tumani — haqiqiy vakansiyalaridan (eng ko'p ish o'rni bo'lgan tuman).
+  //     Bir korxona ham shahar, ham Qibray faylida bo'lsa, oxirgi import uning
+  //     tumanini "tortib olmasin". Fayldagi korxonalar + vakansiyasi shu importda
+  //     o'chganlar qayta hisoblanadi (vakansiyasi umuman qolmagan korxona — o'zgarmaydi).
+  const affected = [...new Set([...companies.map((c) => c.stir), ...del.rows.map((r) => r.stir)])];
+  await client.query(
+    `update companies c set district = sub.district
+     from (
+       select distinct on (stir) stir, district
+       from vacancies
+       where stir = any($1::text[])
+       group by stir, district
+       order by stir, sum(positions_count) desc, district
+     ) sub
+     where c.stir = sub.stir and c.district is distinct from sub.district`,
+    [affected],
+  );
 
   // 4) tarix
   await client.query(
@@ -159,19 +215,21 @@ export async function writeImport(
     ],
   );
 
-  return { deleted: del.rowCount ?? 0 };
+  return { deleted: del.rowCount ?? 0, scope };
 }
 
-export async function commitStaged(token: string): Promise<{ batch: string; report: ImportReport; deleted: number }> {
+export async function commitStaged(
+  token: string,
+): Promise<{ batch: string; report: ImportReport; deleted: number; scope: string[] }> {
   const row = await queryOne<{ batch: string; payload: { companies: CompanyRow[]; vacancies: VacancyInsert[] }; report: ImportReport }>(
     'select batch, payload, report from import_staging where token = $1',
     [token],
   );
   if (!row) throw new Error("Yuklama topilmadi yoki muddati o'tgan — faylni qaytadan yuklang.");
 
-  const { deleted } = await transaction((client) =>
+  const { deleted, scope } = await transaction((client) =>
     writeImport(client, row.payload.companies, row.payload.vacancies, row.batch, row.report),
   );
   await discardStaged(token);
-  return { batch: row.batch, report: row.report, deleted };
+  return { batch: row.batch, report: row.report, deleted, scope };
 }

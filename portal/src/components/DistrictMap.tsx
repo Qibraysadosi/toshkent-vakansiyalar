@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { DISTRICTS } from '@/lib/districts';
+import { DISTRICTS, regionLabel } from '@/lib/districts';
 import type { Script } from '@/lib/transliterate';
 
 /**
  * PLAN §5.3 — IMZO ELEMENT. Soddalashtirilgan Toshkent tumanlar xaritasi:
  * har tumanda jonli vakansiya soni, hover'da `chinni` bilan yonadi, bosilganda
- * o'sha tuman ro'yxatiga o'tadi. Mobilda xarita o'rniga 12 ta chip-grid.
+ * o'sha tuman ro'yxatiga o'tadi. Mobilda xarita o'rniga chip-grid.
+ * Viloyat tumani (Qibray) punktir chegara bilan — shahar tarkibida emasligi ko'rinsin.
  */
 /**
  * Poligonni o'z markaziga qarab bir oz kichraytiradi — natijada tumanlar
@@ -60,9 +61,9 @@ export function DistrictMap({
                 onMouseLeave={() => setHovered(null)}
                 onFocus={() => setHovered(d.slug)}
                 onBlur={() => setHovered(null)}
-                aria-label={`${label}: ${count}`}
+                aria-label={`${label}${d.region === 'viloyat' ? ` (${regionLabel(d.db, script)})` : ''}: ${count}`}
               >
-                <polygon points={inset(d.points)} className="tuman-poligon" />
+                <polygon points={inset(d.points)} className="tuman-poligon" data-viloyat={d.region === 'viloyat'} />
                 <text
                   x={d.label[0]}
                   y={d.label[1] - 6}
@@ -88,12 +89,12 @@ export function DistrictMap({
 
         <p className="mt-2 text-center text-xs text-tosh" aria-live="polite">
           {active
-            ? `${script === 'cyr' ? active.cyr : active.lat} — ${nf.format(counts[active.db] ?? 0)} ${
-                script === 'cyr' ? 'иш ўрни' : "ish o'rni"
-              }`
+            ? `${script === 'cyr' ? active.cyr : active.lat}${
+                active.region === 'viloyat' ? ` (${regionLabel(active.db, script)})` : ''
+              } — ${nf.format(counts[active.db] ?? 0)} ${script === 'cyr' ? 'иш ўрни' : "ish o'rni"}`
             : script === 'cyr'
-              ? 'Туман устига босинг'
-              : "Tuman ustiga bosing"}
+              ? 'Туман устига босинг · пунктир — Тошкент вилояти'
+              : "Tuman ustiga bosing · punktir — Toshkent viloyati"}
         </p>
       </div>
 

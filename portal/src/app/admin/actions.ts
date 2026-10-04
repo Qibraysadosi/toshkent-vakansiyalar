@@ -114,7 +114,7 @@ export async function confirmImportAction(_prev: ImportPreviewState, form: FormD
       report: result.report,
       ok:
         `Import tugadi: ${result.report.rowsMerged} ta yozuv saqlandi, ` +
-        `${result.deleted} ta eski yozuv o'chirildi. Batch: ${result.batch}.`,
+        `${result.deleted} ta eski yozuv o'chirildi (${result.scope.length} ta tuman ichida). Batch: ${result.batch}.`,
     };
   } catch (err) {
     return { error: `Bazaga yozishda xato: ${err instanceof Error ? err.message : String(err)}` };

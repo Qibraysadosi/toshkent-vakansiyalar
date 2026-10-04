@@ -294,6 +294,10 @@
   fill: color-mix(in srgb, var(--chinni) 26%, var(--yuza));
   stroke: var(--chinni-toq);
 }
+/* Viloyat tumani (Qibray) — shahar tarkibida emas: punktir chegara */
+.tuman-poligon[data-viloyat='true'] {
+  stroke-dasharray: 7 6;
+}
 .tuman-guruh text {
   pointer-events: none;
   user-select: none;

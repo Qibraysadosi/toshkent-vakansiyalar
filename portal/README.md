@@ -1,7 +1,8 @@
 # Toshkent vakansiyalar portali
 
-Toshkentdagi rasmiy bo'sh ish o'rinlari uchun qidiruv portali: 15 000+ vakansiya,
-lotin/kirill farqisiz qidiruv, tumanlar bo'yicha filtr, ochiq maosh statistikasi.
+Toshkentdagi rasmiy bo'sh ish o'rinlari uchun qidiruv portali: Toshkent shahrining
+12 tumani va Qibray tumani (Toshkent viloyati), 16 000+ ish o'rni, lotin/kirill
+farqisiz qidiruv, tumanlar bo'yicha filtr, ochiq maosh statistikasi.
 
 Manba — rasmiy oylik Excel bazasi. To'liq reja: [PLAN.md](./PLAN.md).
 Ishlab chiqish konvensiyalari: [CLAUDE.md](./CLAUDE.md).
@@ -91,12 +92,20 @@ portal/
 | `/vakansiyalar` | Ro'yxat + filtrlar (hammasi URL query'da, ulashsa bo'ladi) |
 | `/vakansiya/[id]` | To'liq ma'lumot, `tel:` tugma, o'xshash vakansiyalar, JobPosting schema |
 | `/korxona/[stir]` | Korxona kartasi + barcha vakansiyalari |
-| `/tuman/[slug]` | 12 ta tuman sahifasi (SEO, har so'rovda render) |
+| `/tuman/[slug]` | 13 ta tuman sahifasi, shu jumladan `/tuman/qibray` (SEO, har so'rovda render) |
 | `/statistika` | Ochiq analitika (Recharts) |
 | `/saqlangan` | Saqlangan vakansiyalar (brauzerda, loginsiz) |
 | `/admin` | Parol bilan: import (oldindan ko'rish → tasdiqlash), vakansiyalarni yashirish, sinonimlar, loglar, Telegram |
 | `/api/v1/vacancies` | Ochiq JSON API (`?q=&tuman=&ids=`) |
 | `/api/telegram` | Telegram bot webhook |
+
+## Bir nechta fayl (Toshkent shahri + Qibray)
+
+Har oy ikki xil fayl kelishi mumkin: Toshkent shahri (12 tuman) va Qibray tumani.
+Ikkalasi ham `/admin` → Import orqali yuklanadi, istalgan tartibda. Har fayl faqat
+o'z hududini almashtiradi: Qibray fayli Toshkent vakansiyalariga, Toshkent fayli
+Qibrayga tegmaydi. Qibray faylining batch nomiga o'zi `-qibray` qo'shiladi.
+Ustunlari farq qilsa ham o'qiladi (sarlavha 2-qatorda, bo'lim/sana/kvota yo'q).
 
 ## Imkoniyatlar
 
