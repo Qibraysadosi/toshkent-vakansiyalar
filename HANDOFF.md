@@ -1,6 +1,6 @@
 # HANDOFF — sessiyalar orasidagi xotira
 
-> Bu fayl oldingi Claude Code sessiyasidan (2026-08-24 … 2026-10-04) qolgan to'liq
+> Bu fayl oldingi Claude Code sessiyalaridan (2026-08-24 … 2026-10-05) qolgan to'liq
 > kontekst. Xom transkript (~28 MB, asosan vosita chiqishlari) o'rniga muhim hamma narsa
 > shu yerda jamlangan; foydalanuvchining barcha xabarlari 12-bo'limda so'zma-so'z,
 > Claude javoblari qisqacha.
@@ -86,7 +86,7 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 | GitHub | `Qibraysadosi/toshkent-vakansiyalar` — **ochiq (public)**, hamma o'qiy oladi | Claude GitHub App shu hisobda. `main` ga push → avtomatik production deploy (1–2 daqiqa). **Yopiq (private) qilinmasin:** Vercel Hobby yopiq repoda faqat hisob egasining commitlarini joylaydi, Claude commitlari bloklanadi |
 | Hosting | Vercel, hisob **"qibraysadosi's projects"** (Hobby), loyiha `toshkent-vakansiyalar` | Root Directory `portal`, Production Branch `main` |
 | Vercel env | `ADMIN_PASSWORD`, `TG_WEBHOOK_SECRET`, `DATABASE_URL` | Qiymatlar faqat Vercel'da — repoga va bu faylga yozilmaydi |
-| Claude muhiti (Environment variables) | `PROD_ADMIN_PASSWORD` — production `/admin` paroli | Foydalanuvchi qo'shgan bo'lsa, sessiyada `$PROD_ADMIN_PASSWORD`. Yo'q bo'lsa — muhit sozlamasiga qo'shishni ayting, chatga yozdirmang |
+| Claude muhiti | **"Claude"** (`env_018bZDRVWrSDeHQGzQR7GUbM`) — sessiyalar shu muhitda. Network access **Custom**: `toshkent-vakansiyalar-steel.vercel.app` + standart paket menejerlari. Environment variables: `PROD_ADMIN_PASSWORD` — production `/admin` paroli | 2026-10-05 da sozlandi va tekshirildi: sessiyadan sayt ochiladi, `/admin` ga kirish ishlaydi. Tahrirlash (Desktop ilova): chap paneldagi repo yonidagi **+** → xabar maydonidagi muhit tanlagichi → **Cloud** → **Claude** ustida ⚙. Yana ikkita **"Default"** muhit bor — ishlatilmaydi (birida xato bilan xuddi shu sozlamalar saqlangan, zarari yo'q). Tarmoq o'zgarishi ~1 daqiqada amalga oshadi; o'zgaruvchilar — sessiya qayta ishga tushganda yoki yangi sessiyada. Parolni chatga yozdirmang |
 | Baza | Supabase (East US), **Transaction pooler**, port 6543 | `portal/supabase/schema.sql` qo'llangan. Baza paroli foydalanuvchida |
 | Telegram bot | sozlanmagan | `TG_BOT_TOKEN` yo'q |
 | Domen | yo'q, `*-steel.vercel.app` | |
@@ -105,6 +105,7 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 - `ADMIN_PASSWORD` va `TG_WEBHOOK_SECRET` ni oldingi sessiya yaratgan va chatda
   ko'rsatgan — almashtirish tavsiya qilingan (Vercel → Settings → Environment
   Variables → yangi qiymat → Redeploy). Bot ulashdan oldin webhook secret ham yangilansin.
+  2026-10-05 da foydalanuvchi admin parolini yana chatga yozdi — almashtirish yanada zarur.
 - Foydalanuvchining Vercel hisobida boshqa loyiha ham bor (`uztira-site`) — tegilmaydi.
 - `toshkent-vakansiyalar.vercel.app` nomi band bo'lgani uchun Vercel `-steel` qo'shgan.
 
@@ -114,11 +115,16 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 | --- | --- | --- | --- |
 | Toshkent shahri, `2026-10` | 15 174 | 12 045 | 1 035 |
 | Qibray tumani, `2026-10-qibray` (sentabr holati) | 1 042 | 880 | 127 |
-| **Jami** | **16 216** | **12 925** | ≈1 160 |
+| **Jami** | **16 216** | **12 925** | **1 162** |
 
 Tumanlar bo'yicha ish o'rinlari: Olmazor 2 985, Mirobod 2 412, Shayxontohur 2 223,
 Mirzo Ulug'bek 1 646, Yashnobod 1 240, Yunusobod 1 233, Qibray 1 042, Chilonzor 986,
 Yakkasaroy 734, Yangihayot 699, Uchtepa 521, Sergeli 291, Bektemir 204.
+
+2026-10-05 da jonli sayt va admin panelda tekshirildi — hammasi shu jadvaldagidek.
+Admin "Sifat hisoboti": maoshi yo'q 4 933 (38%), maoshi aniqlashtirilmoqda 65, sanasi va
+bo'limi yo'q 880 (Qibray), kvota yo'nalishida 594, lavozimi kirillda 11 415 (88%).
+Telegram obunachi 0. Natijasiz qidiruvlar yo'q.
 
 Asl Excel fayllar repoda yo'q (shaxsiy ma'lumot) — foydalanuvchi kompyuterida.
 Takrorlar `fingerprint` bo'yicha birlashadi, `positions_count` ish o'rinlarini saqlaydi.
@@ -146,11 +152,20 @@ saralashda oxirida. Import buni o'zi aniqlaydi (`findHeaderRow`, `REQUIRED_FIELD
 
 ## 6. Bulut sessiyasining cheklovlari
 
-- **Tarmoq siyosati** bloklaydi: `.uz` domenlari (gov.uz, stat.uz, soliq.uz, ihamkor.uz …),
-  `*.vercel.app` (jonli sayt), `vercel.com`, `supabase.com`. `WebSearch` ishlaydi,
-  `.uz` saytlariga `WebFetch` — yo'q. Jonli saytni Claude o'zi tekshira olishi uchun
-  foydalanuvchi muhit sozlamalarida Network access → Custom →
-  `toshkent-vakansiyalar-steel.vercel.app` ni qo'shishi kerak.
+- **Tarmoq siyosati** ("Claude" muhiti, Custom): jonli sayt
+  `toshkent-vakansiyalar-steel.vercel.app` **ochiq** (2026-10-05 dan) — sahifalar va
+  `/api/v1/vacancies` ni `curl` bilan tekshirish mumkin. Hali bloklangan: `.uz` domenlari
+  (gov.uz, stat.uz, soliq.uz, ihamkor.uz …), boshqa `*.vercel.app`, `vercel.com`,
+  `supabase.com`. `WebSearch` ishlaydi, `code.claude.com` hujjatlari ochiladi. Yangi domen
+  kerak bo'lsa — foydalanuvchi o'sha ro'yxatga qo'shadi (3-bo'lim).
+- **Production `/admin`** ga `$PROD_ADMIN_PASSWORD` bilan kirish — faqat foydalanuvchi
+  aniq so'raganda yoki ruxsat berganda, faqat o'qish uchun. Auto rejimdagi xavfsizlik
+  tekshiruvi so'ralmagan urinishni to'xtatadi ("Production Reads"); 2026-10-05 da
+  foydalanuvchi "parol bilan kiraver" degach ishladi. Kirish formasi JavaScript'siz ham
+  ishlaydi: `/admin` sahifasidagi yashirin `$ACTION_*` maydonlari + `password` ni multipart
+  POST qilish → `admin_sessiya` cookie (8 soat); cookie faylini ishdan keyin o'chiring.
+  Chromium (Playwright) bilan jonli sayt sinab ko'rilmagan (proksi sertifikati uchun
+  `certutil` yo'q) — `curl` ishlaydi.
 - **SessionStart hook** (`.claude/hooks/session-start.sh`): Postgres 16, lokal
   `vak`/`vakansiyalar` baza, `schema.sql`, `portal/.env.local` (lokal admin paroli
   `parol123`), `npm install`; lokal baza bo'sh bo'lsa `portal/data/seed/*.xlsx`
@@ -182,6 +197,7 @@ saralashda oxirida. Import buni o'zi aniqlaydi (`findHeaderRow`, `REQUIRED_FIELD
 | 2026-10-04 | **Qibray tumani** (commit `c0bf057`): sarlavha qatorini topish, ixtiyoriy ustunlar, hudud bo'yicha almashtirish, `-qibray` batch, korxona tumanini qayta hisoblash, xarita (punktir chegara)/filtr/sahifalar/bot. Qibray fayli yuklandi va tekshirildi |
 | 2026-10-04 | Korxonani STIR bo'yicha boyitish manbalari o'rganildi (9-bo'lim) |
 | 2026-10-04 | README tuzatish (`2653587`); shu HANDOFF, ildiz `CLAUDE.md`, sun'iy seed fayllar, hook xavfsizligi |
+| 2026-10-05 | Yangi sessiya: "Claude" muhitiga jonli sayt domeni (Custom) va `PROD_ADMIN_PASSWORD` qo'shildi; sayt va `/admin` sessiyadan tekshirildi — raqamlar o'zgarmagan |
 
 ## 8. Chrome kengaytmasi uchun topshiriq namunasi (import)
 
@@ -376,3 +392,23 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
     parollar bu faylga yozilmadi. Yopiq qilish ham mumkin emas (Vercel Hobby Claude
     commitlarini bloklaydi). O'rniga: Claude muhit sozlamalariga `PROD_ADMIN_PASSWORD`
     qo'shish. Baza parolini Claude bilmaydi (foydalanuvchida), sessiyaga kerak ham emas.
+
+**2026-10-05 — yangi sessiya: muhit sozlamalari**
+
+38. "Holatni qisqacha ayt" → holat jadvali (sayt, ma'lumot, kod) va ochiq masalalar.
+39. [`HANDOFF.md` fayli chatga yuklandi] → repodagi eski nusxa ekan; GitHub'dagi yangisi
+    (37-band) tortib olindi. Faylni yuklash shart emas — sessiya ochilganda o'qiladi.
+    Sayt bloklangan, `PROD_ADMIN_PASSWORD` yo'q — muhit sozlamasiga qo'shish so'raldi.
+40. "PROD_ADMIN_PASSWORD=[parol — bu yerga yozilmadi]" → parol chatga yozildi; faylga
+    yozilmadi, to'g'ri joyi muhit sozlamasi ekani tushuntirildi, almashtirish tavsiya qilindi.
+41. "jonli sayt tarmoq sozlamasidagi blokni qanday olib tashlasam bo'ladi" → Network
+    access → Custom → domen qo'shish qadamlari.
+42. [Desktop ilova skrinshoti] "Qayerni bosay" → sozlama sessiya sarlavhasida emas:
+    repo yonidagi **+** → muhit tanlagichi → Cloud → **Claude** ⚙ (3-bo'lim).
+43. "Endi tekshirchi" → hali bloklangan edi: o'zgarish "Default" muhitiga saqlangan
+    (sessiya "Claude" da) → "Claude" muhitida takrorlash so'raldi.
+44. "tekshir" → sayt ochildi, parol bor, raqamlar mos (4-bo'lim). Admin'ga kirish
+    urinishini xavfsizlik tekshiruvi to'xtatdi → foydalanuvchidan ruxsat so'raldi.
+45. "/admin parol bilan kiraver. Chunki saytni o'zing yaratgansan. Men hali hech nima
+    qo'shmadim" → admin panelga kirildi (faqat o'qish): 16 216 / 12 925 / 1 162, oxirgi
+    importlar `2026-10-qibray` (880, 04.10.2026) va `2026-10` (12 045, 02.10.2026).
