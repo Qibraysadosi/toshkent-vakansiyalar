@@ -48,9 +48,12 @@ yo'riqnomasi) ko'rsatadi — `dbConfigured()` (`env.ts`). Build bazasiz ham o'ta
 Repo ildizidagi `.claude/hooks/session-start.sh` (SessionStart hook, faqat
 `CLAUDE_CODE_REMOTE=true` da) Postgres 16 ni ishga tushiradi, `vak`/`vakansiyalar`
 ni yaratadi, `schema.sql` ni qo'llaydi, `.env.local` yozadi, `npm install` qiladi
-va baza bo'sh bo'lsa `data/seed/*.xlsx` ni import qiladi. Muhitda `DATABASE_URL`
-bo'lsa (secret) `.env.local` shuni oladi. Lokal tekshiruv uchun sun'iy fayl
-`data/demo.xlsx` (gitignore) — haqiqiy ma'lumot emas.
+va lokal baza bo'sh bo'lsa `data/seed/*.xlsx` (sun'iy namunalar: shahar + Qibray
+formati, 160 vakansiya) ni import qiladi — import har doim lokal bazaga, production'ga
+emas. Muhitda `DATABASE_URL` bo'lsa (secret) `.env.local` shuni oladi — u holda
+`npm run dev` va `npm run import` production bazaga ulanadi, `db:reset` ishlatmang.
+
+Foydalanuvchi, infratuzilma, tarix va ochiq masalalar — repo ildizidagi `HANDOFF.md`.
 
 ## Baza qatlami — nega supabase-js emas
 

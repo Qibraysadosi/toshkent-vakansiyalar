@@ -102,14 +102,17 @@ log "npm install..."
 npm install --no-audit --no-fund --prefer-offline --loglevel=error
 
 # ---------------------------------------------------------------------------
-# 5. Namuna ma'lumot: baza bo'sh bo'lsa data/seed/*.xlsx import qilinadi
+# 5. Namuna ma'lumot: LOKAL baza bo'sh bo'lsa data/seed/*.xlsx import qilinadi
+#    (sun'iy namunalar, faqat lokal Postgres'ga — production'ga hech qachon)
 # ---------------------------------------------------------------------------
 COUNT="$(psql "$DB_URL" -Atqc 'select count(*) from vacancies' 2>/dev/null || echo 0)"
 if [ "${COUNT:-0}" = "0" ]; then
   shopt -s nullglob
   for f in "$PORTAL"/data/seed/*.xlsx; do
     log "Import: $(basename "$f")"
-    npm run --silent import -- "$f" >/dev/null || log "OGOHLANTIRISH: import xato berdi — $f"
+    # DATABASE_URL har doim LOKAL baza: muhitda Supabase secret bo'lsa ham
+    # namuna fayllar hech qachon production'ga yozilmasin.
+    DATABASE_URL="$DB_URL" npm run --silent import -- "$f" >/dev/null || log "OGOHLANTIRISH: import xato berdi — $f"
   done
   shopt -u nullglob
 fi
