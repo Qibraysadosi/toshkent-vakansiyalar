@@ -83,9 +83,10 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 
 | Qism | Qayerda | Izoh |
 | --- | --- | --- |
-| GitHub | `Qibraysadosi/toshkent-vakansiyalar` | Claude GitHub App shu hisobda. `main` ga push → avtomatik production deploy (1–2 daqiqa) |
+| GitHub | `Qibraysadosi/toshkent-vakansiyalar` — **ochiq (public)**, hamma o'qiy oladi | Claude GitHub App shu hisobda. `main` ga push → avtomatik production deploy (1–2 daqiqa). **Yopiq (private) qilinmasin:** Vercel Hobby yopiq repoda faqat hisob egasining commitlarini joylaydi, Claude commitlari bloklanadi |
 | Hosting | Vercel, hisob **"qibraysadosi's projects"** (Hobby), loyiha `toshkent-vakansiyalar` | Root Directory `portal`, Production Branch `main` |
 | Vercel env | `ADMIN_PASSWORD`, `TG_WEBHOOK_SECRET`, `DATABASE_URL` | Qiymatlar faqat Vercel'da — repoga va bu faylga yozilmaydi |
+| Claude muhiti (Environment variables) | `PROD_ADMIN_PASSWORD` — production `/admin` paroli | Foydalanuvchi qo'shgan bo'lsa, sessiyada `$PROD_ADMIN_PASSWORD`. Yo'q bo'lsa — muhit sozlamasiga qo'shishni ayting, chatga yozdirmang |
 | Baza | Supabase (East US), **Transaction pooler**, port 6543 | `portal/supabase/schema.sql` qo'llangan. Baza paroli foydalanuvchida |
 | Telegram bot | sozlanmagan | `TG_BOT_TOKEN` yo'q |
 | Domen | yo'q, `*-steel.vercel.app` | |
@@ -162,7 +163,10 @@ saralashda oxirida. Import buni o'zi aniqlaydi (`findHeaderRow`, `REQUIRED_FIELD
   `npm run typecheck && npm run lint && npm test && npm run build`.
 - **Commit muallifi:** `git config user.name Claude` va
   `git config user.email noreply@anthropic.com` (aks holda GitHub "Unverified" deydi).
-- Repoga hech qachon: parollar, `DATABASE_URL`, haqiqiy Excel fayllar.
+- **Repo ochiq** — repoga (shu fayl ham) hech qachon: parollar, tokenlar, `DATABASE_URL`,
+  haqiqiy Excel fayllar. Parollar faqat Vercel'da va Claude muhit sozlamalarida
+  (`PROD_ADMIN_PASSWORD`). Foydalanuvchi parolini so'rasa — chatda aytish mumkin,
+  faylga yoki commitga yozilmaydi.
 - Claude o'z ruxsat sozlamalarini (`.claude/settings.json` permissions) o'zgartira
   olmaydi — xavfsizlik tekshiruvi bloklaydi. Ruxsat rejimini foydalanuvchi sessiya
   oynasida o'zi tanlaydi.
@@ -237,7 +241,9 @@ tugmasi). Yetishmayotgani asosan **manzil**.
   `npm run telegram:setup`. Saytdagi bot havolasi uchun `NEXT_PUBLIC_TG_BOT` (bot username).
 - **O'z domeni:** foydalanuvchida webname.uz va Hostinger "Connect domain" sahifalari
   ochiq turgani ko'ringan — hali muhokama qilinmagan. Vercel → Settings → Domains.
-- `ADMIN_PASSWORD` ni almashtirish; "jhon's projects" dagi bo'sh Vercel loyihasini o'chirish.
+- `ADMIN_PASSWORD` ni almashtirish (yangi qiymat ikki joyga: Vercel `ADMIN_PASSWORD` +
+  Redeploy, Claude muhitidagi `PROD_ADMIN_PASSWORD`); "jhon's projects" dagi bo'sh Vercel
+  loyihasini o'chirish.
 - Supabase bepul loyiha 7 kun ishlatilmasa pauza bo'ladi — Dashboard → Restore.
 - Lighthouse o'lchovi (sandbox'da o'lchanmagan); `xlsx@0.18.5` (CVE-2023-30533) → `exceljs`.
 - Keyingi importda yangi korxonalar sonini o'lchash (iHamkor tarifini tanlash uchun).
@@ -366,3 +372,7 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
     tushunib olsin va keyin hozir sen bilan gaplashganimizdek gaplashib ketaversin.
     Xullas qisqasi o'zingni yangi sessiyaga klonlahing kerak" → shu `HANDOFF.md` va ildiz
     `CLAUDE.md` (har sessiyada avtomatik yuklanadi), sun'iy seed fayllar, hook xavfsizligi.
+37. "Parollarni ham kiritib ber" → repo ochiq (public) ekani aniqlandi, shuning uchun
+    parollar bu faylga yozilmadi. Yopiq qilish ham mumkin emas (Vercel Hobby Claude
+    commitlarini bloklaydi). O'rniga: Claude muhit sozlamalariga `PROD_ADMIN_PASSWORD`
+    qo'shish. Baza parolini Claude bilmaydi (foydalanuvchida), sessiyaga kerak ham emas.
