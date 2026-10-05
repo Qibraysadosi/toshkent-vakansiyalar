@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { query, queryOne } from './db';
 import { normalize } from './normalize';
+import { findSimilar, loose, suggestQuery, type IndexEntry } from './fuzzy';
 
 /**
  * Barcha SQL shu faylda. Qiymatlar HAR DOIM $1, $2 parametrlari orqali
@@ -48,18 +49,31 @@ export interface SearchParams {
   stir?: string;
   /** Admin: yashirilgan yozuvlarni ham ko'rsatish */
   includeHidden?: boolean;
+  /**
+   * Aniq natija kam bo'lsa (`FEW_RESULTS`), ro'yxat o'xshash yozuvlar bilan
+   * to'ldiriladi. Standart — yoqiq; admin qidiruvida o'chiq (aniq yozuv
+   * izlanadi). Aniq natija umuman bo'lmasa, o'xshashlari baribir ko'rsatiladi.
+   */
+  fill?: boolean;
   sort?: SortKey;
   page?: number;
   perPage?: number;
 }
 
+export interface SearchRow extends VacancyListItem {
+  /** Aniq mos emas — xato yozilgan so'rovga o'xshash deb qo'shilgan (fuzzy.ts → findSimilar). */
+  similar: boolean;
+}
+
 export interface SearchResult {
-  rows: VacancyListItem[];
+  rows: SearchRow[];
   total: number;
   page: number;
   perPage: number;
-  /** Aniq moslik topilmay, o'xshashlik bo'yicha qidirilgan bo'lsa. */
+  /** Aniq moslik topilmay, faqat o'xshashlik bo'yicha topilgan bo'lsa. */
   fuzzy: boolean;
+  /** Aniq moslik soni; `total` dan ortig'i o'xshash yozuvlar (ro'yxat oxirida). */
+  exactTotal: number;
   /** Sinonim orqali kengaytirilgan so'zlar (foydalanuvchiga ko'rsatiladi). */
   expandedFrom: string | null;
 }
@@ -116,43 +130,92 @@ function buildFilters(p: SearchParams, params: unknown[]): string[] {
   return where;
 }
 
+/**
+ * fuzzy.ts dagi `loose()` ning SQL nusxasi (қ/к → k, ҳ/х → h). Ikkalasi AYNAN
+ * bir xil natija berishi shart. `col` — ustun nomi, foydalanuvchi qiymati emas.
+ */
+const LOOSE = (col: string) => `translate(${col}, 'qx', 'kh')`;
+
+/** Aniq natija shundan kam bo'lsa, ro'yxat o'xshash yozuvlar bilan to'ldiriladi. */
+export const FEW_RESULTS = 10;
+
+/** Ro'yxatga qo'shiladigan o'xshash lavozim (kalit) lar soni chegarasi. */
+const SIMILAR_LIMIT = 300;
+
+/**
+ * Xatoga chidamli qidiruv uchun lavozimlar ro'yxati: kalit, eng ko'p uchragan
+ * asl yozuv, vakansiya va ish o'rinlari soni (fuzzy.ts → findSimilar,
+ * suggestQuery). Keshda ixcham massiv sifatida saqlanadi (pastda `cached`).
+ */
+async function getSearchIndexUncached(): Promise<[string, string, number, number][]> {
+  const rows = await query<{ ps: string; label: string; n: number; p: number }>(
+    `select position_search as ps,
+            mode() within group (order by position) as label,
+            count(*)::int as n,
+            sum(positions_count)::int as p
+     from vacancies
+     where not is_hidden
+     group by position_search`,
+  );
+  return rows.map((r) => [r.ps, r.label, r.n, r.p]);
+}
+
+async function getSearchIndex(): Promise<IndexEntry[]> {
+  const rows = await getSearchIndexCached();
+  return rows.map(([ps, label, n, p]) => ({ ps, label, n, p }));
+}
+
+/**
+ * PLAN §3.1 — qidiruv:
+ *
+ * 1. Aniq moslik: lavozim yoki korxona nomida so'rov (yoki sinonimi) bor.
+ *    Lavozim `LOOSE` kalit bo'yicha solishtiriladi — rus klaviaturasi (к/қ,
+ *    х/ҳ) natijani bo'lib yubormaydi.
+ * 2. Aniq natija `FEW_RESULTS` dan kam bo'lsa — xato yozilgan so'rov uchun
+ *    o'xshash lavozimlar (fuzzy.ts → findSimilar: so'zda 1–2 harf xatosi,
+ *    qo'sh harf, qo'shimchalar) ro'yxat oxiriga qo'shiladi: avval aniq mos,
+ *    keyin xatosi kamlari.
+ */
 export async function searchVacancies(p: SearchParams): Promise<SearchResult> {
-  let page = Math.max(1, p.page ?? 1);
+  const requestedPage = Math.max(1, p.page ?? 1);
   const perPage = Math.min(100, Math.max(1, p.perPage ?? 20));
-  const offset = (page - 1) * perPage;
   const sort = p.sort && ORDER_BY[p.sort] ? p.sort : 'yangi';
 
   const qNorm = normalize(p.q ?? '');
   const { terms, expandedFrom } = await expandQuery(qNorm);
 
-  const run = async (mode: 'exact' | 'fuzzy', off: number) => {
+  /** `similar` — o'xshash lavozim kalitlari (tartib = ustuvorlik); berilmasa faqat aniq moslik. */
+  const run = async (off: number, similar?: string[]) => {
     const params: unknown[] = [];
     const where = buildFilters(p, params);
 
+    let exactSql = 'true';
+    let similarJoin = '';
+    let rankCol = '';
+    let orderSql = ORDER_BY[sort];
     if (qNorm) {
-      if (mode === 'exact') {
-        const patterns = terms.map((t) => `%${t}%`);
-        const idx = params.push(patterns);
-        where.push(`(v.position_search ilike any($${idx}::text[]) or c.name_search ilike any($${idx}::text[]))`);
+      const looseIdx = params.push([...new Set(terms.map((t) => `%${loose(t)}%`))]);
+      const nameIdx = params.push(terms.map((t) => `%${t}%`));
+      exactSql = `(${LOOSE('v.position_search')} like any($${looseIdx}::text[]) or c.name_search ilike any($${nameIdx}::text[]))`;
+      if (similar) {
+        similarJoin = `left join unnest($${params.push(similar)}::text[]) with ordinality as s(ps, rank) on s.ps = v.position_search`;
+        where.push(`(${exactSql} or s.rank is not null)`);
+        rankCol = `, case when not ${exactSql} then s.rank end as similar_rank`;
+        orderSql = `is_similar, similar_rank, ${ORDER_BY[sort]}`;
       } else {
-        const idx = params.push(qNorm);
-        where.push(`v.position_search % $${idx}`);
+        where.push(exactSql);
       }
     }
 
     const whereSql = where.length ? `where ${where.join(' and ')}` : '';
-    const orderSql =
-      mode === 'fuzzy' && qNorm
-        ? `similarity(v.position_search, $${params.push(qNorm)}) desc, ${ORDER_BY[sort]}`
-        : ORDER_BY[sort];
-
     const limitIdx = params.push(perPage);
     const offsetIdx = params.push(off);
 
-    return query<VacancyListItem & { total: string }>(
-      `select ${SELECT_LIST}, count(*) over() as total
+    return query<VacancyListItem & { is_similar: boolean; similar_rank?: number | null; total: string }>(
+      `select ${SELECT_LIST}, not ${exactSql} as is_similar${rankCol}, count(*) over() as total
        from vacancies v
        join companies c on c.stir = v.stir
+       ${similarJoin}
        ${whereSql}
        order by ${orderSql}
        limit $${limitIdx} offset $${offsetIdx}`,
@@ -160,37 +223,52 @@ export async function searchVacancies(p: SearchParams): Promise<SearchResult> {
     );
   };
 
-  let rows = await run('exact', offset);
-  let fuzzy = false;
-
   // Sahifa raqami natijalar sonidan oshib ketgan bo'lsa (eski havola, qo'lda
   // yozilgan URL) — oxirgi mavjud sahifaga qisqartiramiz. Aks holda total=0
-  // chiqib, noto'g'ri fuzzy fallback ishga tushar edi.
-  if (rows.length === 0 && offset > 0) {
-    const first = await run('exact', 0);
-    if (first.length) {
-      const total = Number(first[0].total);
-      page = Math.max(1, Math.min(page, Math.ceil(total / perPage)));
-      rows = page > 1 ? await run('exact', (page - 1) * perPage) : first;
+  // chiqib, o'xshash yozuvlar keraksiz qo'shilar edi.
+  const fetchPage = async (similar?: string[]) => {
+    let page = requestedPage;
+    let rows = await run((page - 1) * perPage, similar);
+    if (rows.length === 0 && page > 1) {
+      const first = await run(0, similar);
+      if (first.length) {
+        page = Math.max(1, Math.min(page, Math.ceil(Number(first[0].total) / perPage)));
+        rows = page > 1 ? await run((page - 1) * perPage, similar) : first;
+      }
+    }
+    return { rows, page, total: rows.length ? Number(rows[0].total) : 0 };
+  };
+
+  let found = await fetchPage();
+  const exactTotal = found.total;
+  if (qNorm.length >= 3 && exactTotal < FEW_RESULTS && (p.fill !== false || exactTotal === 0)) {
+    const similar = findSimilar(qNorm, await getSearchIndex(), SIMILAR_LIMIT).map((e) => e.ps);
+    if (similar.length) {
+      const withSimilar = await fetchPage(similar);
+      if (withSimilar.total > exactTotal) found = withSimilar;
     }
   }
 
-  // PLAN §3.1 — aniq moslik yo'q bo'lsa, xato yozilgan so'rov uchun fuzzy fallback
-  if (rows.length === 0 && qNorm.length >= 3) {
-    rows = await run('fuzzy', 0);
-    fuzzy = rows.length > 0;
-    if (fuzzy) page = 1;
-  }
-
-  const total = rows.length ? Number(rows[0].total) : 0;
   return {
-    rows: rows.map(({ total: _t, ...r }) => r),
-    total,
-    page,
+    // similar_rank faqat tartiblash uchun — tashqariga chiqmaydi
+    rows: found.rows.map(({ total: _t, similar_rank: _r, is_similar, ...r }) => ({ ...r, similar: is_similar })),
+    total: found.total,
+    page: found.page,
     perPage,
-    fuzzy,
+    fuzzy: exactTotal === 0 && found.total > 0,
+    exactTotal,
     expandedFrom,
   };
+}
+
+/**
+ * "Balki shuni qidirgandirsiz" taklifi (fuzzy.ts → suggestQuery) — butun
+ * lavozimlar ro'yxati bo'yicha, filtrlarsiz (gap yozilishda, tanlovda emas).
+ * Sahifa faqat aniq natija kam bo'lganda chaqiradi.
+ */
+export async function getSpellingSuggestion(qRaw: string): Promise<string | null> {
+  if (normalize(qRaw).length < 3) return null;
+  return suggestQuery(qRaw, await getSearchIndex());
 }
 
 export async function getVacancy(id: number): Promise<VacancyDetail | null> {
@@ -304,13 +382,16 @@ async function getTopPositionsUncached(limit = 12): Promise<PositionGroup[]> {
   }));
 }
 
-/** Autocomplete (PLAN §3.3) — yozayotganda top-6 mos lavozim + soni. */
+/**
+ * Autocomplete (PLAN §3.3) — yozayotganda top-6 mos lavozim + soni. Qidiruv
+ * kabi `LOOSE` kalit bo'yicha; kam topilsa — o'xshash lavozimlar bilan to'ldiriladi.
+ */
 export async function autocomplete(q: string, limit = 6): Promise<PositionGroup[]> {
   const qNorm = normalize(q);
   if (qNorm.length < 2) return [];
 
   const { terms } = await expandQuery(qNorm);
-  const patterns = terms.map((t) => `%${t}%`);
+  const patterns = [...new Set(terms.map((t) => `%${loose(t)}%`))];
 
   const rows = await query<{ position_search: string; label: string; vacancies: string; positions: string }>(
     `select position_search,
@@ -318,18 +399,28 @@ export async function autocomplete(q: string, limit = 6): Promise<PositionGroup[
             count(*) as vacancies,
             sum(positions_count) as positions
      from vacancies
-     where position_search ilike any($1::text[]) and not is_hidden
+     where ${LOOSE('position_search')} like any($1::text[]) and not is_hidden
      group by position_search
-     order by (position_search like $2) desc, sum(positions_count) desc
+     order by (${LOOSE('position_search')} like $2) desc, sum(positions_count) desc
      limit $3`,
-    [patterns, `${qNorm}%`, limit],
+    [patterns, `${loose(qNorm)}%`, limit],
   );
-  return rows.map((r) => ({
+  const items: PositionGroup[] = rows.map((r) => ({
     position_search: r.position_search,
     label: r.label,
     vacancies: Number(r.vacancies),
     positions: Number(r.positions),
   }));
+
+  // Aniq mos kam bo'lsa — xato yozilgan so'rovga o'xshash lavozimlar bilan to'ldiriladi
+  if (items.length < limit && qNorm.length >= 3) {
+    const seen = new Set(items.map((i) => i.position_search));
+    for (const e of findSimilar(qNorm, await getSearchIndex(), limit + items.length)) {
+      if (items.length >= limit) break;
+      if (!seen.has(e.ps)) items.push({ position_search: e.ps, label: e.label, vacancies: e.n, positions: e.p });
+    }
+  }
+  return items;
 }
 
 /**
@@ -704,8 +795,8 @@ export async function matchesForSubscription(sub: Subscription, batch: string, l
   const where = ['v.first_batch = $1', 'not v.is_hidden'];
   if (sub.query_norm) {
     const { terms } = await expandQuery(sub.query_norm);
-    params.push(terms.map((t) => `%${t}%`));
-    where.push(`v.position_search ilike any($${params.length}::text[])`);
+    params.push([...new Set(terms.map((t) => `%${loose(t)}%`))]);
+    where.push(`${LOOSE('v.position_search')} like any($${params.length}::text[])`);
   }
   if (sub.district) {
     params.push(sub.district);
@@ -778,3 +869,4 @@ export const getTopSearches = cached(getTopSearchesUncached, 'getTopSearches');
 export const getLatestPostedDate = cached(getLatestPostedDateUncached, 'getLatestPostedDate');
 export const getQuotaCounts = cached(getQuotaCountsUncached, 'getQuotaCounts');
 export const getStats = cached(getStatsUncached, 'getStats');
+const getSearchIndexCached = cached(getSearchIndexUncached, 'getSearchIndex');

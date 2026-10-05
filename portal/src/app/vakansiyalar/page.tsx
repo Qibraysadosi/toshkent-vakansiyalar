@@ -2,8 +2,16 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
-import { Suspense } from 'react';
-import { getDistrictCounts, getLatestPostedDate, getQuotaCounts, logSearch, searchVacancies } from '@/lib/queries';
+import { Fragment, Suspense } from 'react';
+import {
+  FEW_RESULTS,
+  getDistrictCounts,
+  getLatestPostedDate,
+  getQuotaCounts,
+  getSpellingSuggestion,
+  logSearch,
+  searchVacancies,
+} from '@/lib/queries';
 import { getScript } from '@/lib/script';
 import { normalize } from '@/lib/normalize';
 import { transliterate } from '@/lib/transliterate';
@@ -40,6 +48,9 @@ const TEXT = {
     forQuery: "so'rov bo'yicha",
     sort: 'Saralash',
     fuzzy: "Aniq moslik topilmadi — o'xshash yozuvlar ko'rsatilmoqda.",
+    similarAdded: "Aniq mos natijalar kam — o'xshash yozuvlar ham qo'shildi.",
+    similarHeading: "O'xshash yozuvlar",
+    didYouMean: 'Balki shuni qidirgandirsiz:',
     synonym: 'Sinonim bo’yicha ham qidirildi:',
   },
   cyr: {
@@ -48,6 +59,9 @@ const TEXT = {
     forQuery: 'сўров бўйича',
     sort: 'Саралаш',
     fuzzy: 'Аниқ мослик топилмади — ўхшаш ёзувлар кўрсатилмоқда.',
+    similarAdded: 'Аниқ мос натижалар кам — ўхшаш ёзувлар ҳам қўшилди.',
+    similarHeading: 'Ўхшаш ёзувлар',
+    didYouMean: 'Балки шуни қидиргандирсиз:',
     synonym: 'Синоним бўйича ҳам қидирилди:',
   },
 } as const;
@@ -80,6 +94,13 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
   ]);
   const quotaCounts = Object.fromEntries(quotas.map((q) => [q.quota, q.count]));
 
+  // Aniq natija kam bo'lsa — to'g'ri yozilish taklifi ("Balki shuni…"). Taklif
+  // ixtiyoriy: xato bo'lsa sahifa baribir chiqadi.
+  const suggestion =
+    parsed.q && result.exactTotal < FEW_RESULTS ? await getSpellingSuggestion(parsed.q).catch(() => null) : null;
+  const suggestionText = suggestion ? transliterate(suggestion, script) : '';
+  const similarAdded = result.exactTotal > 0 && result.total > result.exactTotal;
+
   // PLAN §3.3 — qidiruv analitikasi. Faqat 1-sahifa va standart saralash
   // yoziladi (varaqlash va saralash bitta so'rov), robotlar yozilmaydi; yozuv
   // javob yuborilgandan keyin (`after`) ketadi — render kutib turmaydi.
@@ -97,6 +118,13 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
   const sortParams = (value: string) => {
     const next = new URLSearchParams(params);
     next.set(PARAM.sort, value);
+    next.delete(PARAM.page);
+    return `/vakansiyalar?${next.toString()}`;
+  };
+
+  const queryParams = (value: string) => {
+    const next = new URLSearchParams(params);
+    next.set(PARAM.q, value);
     next.delete(PARAM.page);
     return `/vakansiyalar?${next.toString()}`;
   };
@@ -160,9 +188,17 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
             </div>
           </div>
 
-          {result.fuzzy && (
+          {suggestion && (
+            <p className="mb-4 text-sm text-tosh">
+              {t.didYouMean}{' '}
+              <Link href={queryParams(suggestionText)} className="font-600 text-chinni underline-offset-4 hover:underline">
+                {suggestionText}
+              </Link>
+            </p>
+          )}
+          {(result.fuzzy || similarAdded) && (
             <p className="mb-4 rounded-karta border border-quyosh/40 bg-quyosh/10 px-4 py-2.5 text-xs text-quyosh-matn">
-              {t.fuzzy}
+              {result.fuzzy ? t.fuzzy : t.similarAdded}
             </p>
           )}
           {result.expandedFrom && !result.fuzzy && (
@@ -175,10 +211,16 @@ export default async function VacanciesPage({ searchParams }: { searchParams: Se
             <EmptyState script={script} hasFilters={parsed.hasFilters} />
           ) : (
             <ul className="stagger grid gap-3">
-              {result.rows.map((v) => (
-                <li key={v.id}>
-                  <VacancyCard v={v} script={script} newSince={newSince} />
-                </li>
+              {result.rows.map((v, i) => (
+                <Fragment key={v.id}>
+                  {/* Aniq mos yozuvlardan keyin — o'xshashlari boshlanadigan joy */}
+                  {similarAdded && v.similar && (i === 0 || !result.rows[i - 1].similar) && (
+                    <li className="pt-3 text-xs font-600 text-tosh">{t.similarHeading}</li>
+                  )}
+                  <li>
+                    <VacancyCard v={v} script={script} newSince={newSince} />
+                  </li>
+                </Fragment>
               ))}
             </ul>
           )}

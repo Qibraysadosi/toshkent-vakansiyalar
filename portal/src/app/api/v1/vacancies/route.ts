@@ -14,6 +14,9 @@ export const dynamic = 'force-dynamic';
  * Parametrlar sayt URL'i bilan bir xil: q, tuman, talim, stavka, maosh,
  * maoshli, kvota, saralash, sahifa. Qo'shimcha: limit (1..100),
  * ids=1,2,3 (aniq yozuvlar — saqlanganlar ro'yxati uchun).
+ *
+ * Aniq natija kam bo'lsa, ro'yxat o'xshash yozuvlar bilan to'ldiriladi:
+ * `meta.exact_total` — aniq mos yozuvlar soni, har yozuvda `similar`.
  */
 export async function GET(request: Request) {
   const limited = rateLimit(request, { key: 'api-v1', limit: 120, windowMs: 60_000 });
@@ -25,8 +28,8 @@ export async function GET(request: Request) {
   let result;
   if (idsRaw) {
     const ids = idsRaw.split(',').map(Number).filter((n) => Number.isSafeInteger(n) && n > 0).slice(0, 100);
-    const rows = await getVacanciesByIds(ids);
-    result = { rows, total: rows.length, page: 1, perPage: rows.length || 1, fuzzy: false };
+    const rows = (await getVacanciesByIds(ids)).map((v) => ({ ...v, similar: false }));
+    result = { rows, total: rows.length, exactTotal: rows.length, page: 1, perPage: rows.length || 1, fuzzy: false };
   } else {
     const parsed = parseSearchParams(url.searchParams);
     const limitRaw = url.searchParams.get('limit');
@@ -42,6 +45,7 @@ export async function GET(request: Request) {
         per_page: result.perPage,
         pages: Math.ceil(result.total / result.perPage),
         fuzzy: result.fuzzy,
+        exact_total: result.exactTotal,
       },
       data: result.rows.map((v) => ({
         id: v.id,
@@ -56,6 +60,7 @@ export async function GET(request: Request) {
         quota: v.quota,
         positions_count: v.positions_count,
         posted_date: v.posted_date,
+        similar: v.similar,
         url: `/vakansiya/${v.id}`,
       })),
     },

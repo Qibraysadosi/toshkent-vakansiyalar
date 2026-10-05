@@ -152,6 +152,30 @@ shuning uchun jadval).
 - **Raqamlar**: `formatNumber()` guruhlarni U+00A0 bilan ajratadi, `.raqam` `nowrap`.
 - Interfeys matni o'zbekcha, "siz"da. Har komponentda `TEXT = { lat, cyr }`.
 
+## Qidiruv — xatoga chidamlilik (`src/lib/fuzzy.ts`)
+
+Normalize va qayta import shart emas — hammasi so'rov vaqtida:
+
+- **Klaviatura kaliti**: `loose()` (қ/к → k, ҳ/х → h) va SQL nusxasi `LOOSE()` =
+  `translate(col, 'qx', 'kh')` (queries.ts) — **ikkalasi AYNAN bir xil bo'lsin**.
+  Lavozim bo'yicha aniq moslik, autocomplete va Telegram obunalari shu kalit bilan
+  (`like`, so'rov ham `loose()` dan o'tadi): "Коровул" = "Қоровул". Satr ichidagi
+  moslik saqlanadi — eski aniq natijalar yo'qolmaydi.
+- **O'xshash yozuvlar**: aniq natija `FEW_RESULTS` (10) dan kam bo'lsa,
+  `findSimilar()` lavozimlar ro'yxatidan (`getSearchIndex` — kalit, eng ko'p asl
+  yozuv, soni; 10 daqiqa kesh, `vacancies` tegi) o'xshashlarini topadi: har so'z
+  so'z boshiga xato bilan (unli almashsa 1, undosh 2, qo'shish/o'chirish/o'rin
+  almashish 1; 5–8 harfga 1, 9+ ga 2 xato; qo'sh harf va qo'shimcha hisobga
+  olinmaydi). Ular aniq moslardan keyin keladi (`similar: true`), sahifada
+  "O'xshash yozuvlar" ajratgichi. Admin qidiruvi `fill: false`.
+- **"Balki shuni qidirgandirsiz"**: `getSpellingSuggestion()` → `suggestQuery()` —
+  faqat aniq natija kam bo'lganda. Taklif bazadagi asl shaklda (masalan
+  "ўқитувчи"), shuning uchun transliterate qilish xavfsiz.
+- Ochiq API: `meta.exact_total`, har yozuvda `similar`.
+- Tezlik: lavozim mosligi endi indekssiz (`translate` — 13 ming qatorda ~7 ms).
+  Ma'lumot ko'p marta oshsa — `translate(position_search, 'qx', 'kh')` ustiga GIN
+  trigram indeks (`schema.sql` + production'da `db:schema`).
+
 ## Dizayn-tizim (PLAN §5) + mavzu
 
 Ranglar ikki qatlamda (`globals.css`):

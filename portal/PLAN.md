@@ -236,6 +236,8 @@ Har bosqich = alohida sessiya. Oxirida: tekshiruv o'tdi → deploy → shu fayld
 - Ko'p til (rus interfeysi)
 - Supabase Auth bilan admin
 - Maosh tarixi (oyma-oy o'zgarish grafigi — 2-3 importdan keyin ma'noli bo'ladi)
+- Qidiruv tezligi: ma'lumot ko'p marta oshsa — `translate(position_search, 'qx', 'kh')`
+  ustiga GIN trigram indeks (hozir 13 ming qatorda indekssiz ~7 ms, kerak emas).
 
 ---
 
@@ -246,7 +248,7 @@ Har bosqich = alohida sessiya. Oxirida: tekshiruv o'tdi → deploy → shu fayld
 | 1 | Poydevor | ✅ |
 | 2 | MVP UI | ✅ |
 | 3 | Dizayn-tizim + xarita | ✅ (+ tungi rejim, mobil navigatsiya) |
-| 4 | Qidiruv v2 + alifbo | ✅ |
+| 4 | Qidiruv v2 + alifbo | ✅ (+ xatoga chidamlilik, 2026-10) |
 | 5 | Admin | ✅ (bo'limlar, ikki bosqichli import, yashirish) |
 | 6 | Boyitish + statistika | ◐ statistika va korxona sahifalari tayyor; boyitish manbasi tasdiqlanmagan |
 | 7 | Telegram + sayqal | ◐ bot, webhook, bildirishnoma kodi tayyor — token kerak; OG/PWA/sitemap tayyor |
@@ -326,15 +328,24 @@ ixtiyoriy ustunlar (bo'lim, sana, kvota yo'q), hudud bo'yicha almashtirish
 (punktir chegara), filtr, `/tuman/qibray`, statistika va Telegram tugmalariga
 qo'shildi. Testlar: `districts.test.ts`, Qibray formatidagi transform testlari.
 
+### 2026-10: xatoga chidamli qidiruv
+
+Jonli saytdagi sinov: "farosh" 521 ta "farrosh" o'rniga 1 ta, "xamshira" 718 ta
+"hamshira" ni ko'rmasdi, "коровул" (rus klaviaturasi) 75 o'rniga 3 ta. Sabab —
+o'xshash qidiruv faqat 0 natijada ishlardi, bazaning o'zida ham к/қ, х/ҳ aralash.
+Yechim (`src/lib/fuzzy.ts`, CLAUDE.md → "Qidiruv — xatoga chidamlilik"):
+klaviatura kaliti (`loose`/`LOOSE`), natija 10 dan kam bo'lsa — so'zdagi 1–2 harf
+xatosi bo'yicha o'xshash lavozimlar ro'yxat oxiriga, "Balki shuni
+qidirgandirsiz: …" taklifi, autocomplete ham shunday. Normalize va baza sxemasi
+o'zgarmadi. Lokal sinov (13 ming sun'iy qator): qarovul 0 → 82, farosh 1 → 533,
+xamshira 133 → 858, buxgaltr 0 → 220; javob 20–60 ms.
+
 ### Qolgan ish (kalit kerak)
 
 - **Boyitish manbasi**: `npm run enrich:probe` ni O'zbekistondan ishga tushiring.
 - **Telegram**: @BotFather'dan token → `TG_BOT_TOKEN`, `TG_WEBHOOK_SECRET` →
   deploydan keyin `npm run telegram:setup`.
-- Deploy: Vercel loyihasi `toshkent-vakansiyalar` yaratilgan (Root Directory
-  `portal`, `ADMIN_PASSWORD`/`TG_WEBHOOK_SECRET` o'rnatilgan). **Sizdan:**
-  Supabase loyihasi → `schema.sql` → `DATABASE_URL` (Transaction pooler) →
-  Vercel env → Redeploy; Vercel'ga GitHub ilovasini ulash (har push'da deploy).
+- Deploy bajarilgan (2026-10-02): Vercel + Supabase, `main` ga push → production.
 - Domen, Lighthouse o'lchovi (sandbox'da o'lchanmadi).
 
 ### PLAN'dan chetlanishlar

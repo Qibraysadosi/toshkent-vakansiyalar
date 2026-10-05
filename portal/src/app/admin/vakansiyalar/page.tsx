@@ -20,7 +20,7 @@ export default async function AdminVacanciesPage({ searchParams }: { searchParam
       ? Promise.resolve(null)
       : isId
         ? getVacancy(Number(term)).then((v) => ({ rows: v ? [v] : [], total: v ? 1 : 0 }))
-        : searchVacancies({ q: term, perPage: 30, includeHidden: true, sort: 'yangi' }),
+        : searchVacancies({ q: term, perPage: 30, includeHidden: true, fill: false, sort: 'yangi' }),
     getHiddenVacancies(100),
   ]);
 

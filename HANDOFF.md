@@ -198,6 +198,7 @@ saralashda oxirida. Import buni o'zi aniqlaydi (`findHeaderRow`, `REQUIRED_FIELD
 | 2026-10-04 | Korxonani STIR bo'yicha boyitish manbalari o'rganildi (9-bo'lim) |
 | 2026-10-04 | README tuzatish (`2653587`); shu HANDOFF, ildiz `CLAUDE.md`, sun'iy seed fayllar, hook xavfsizligi |
 | 2026-10-05 | Yangi sessiya: "Claude" muhitiga jonli sayt domeni (Custom) va `PROD_ADMIN_PASSWORD` qo'shildi; sayt va `/admin` sessiyadan tekshirildi — raqamlar o'zgarmagan |
+| 2026-10-05 | **Xatoga chidamli qidiruv** (`src/lib/fuzzy.ts`): к/қ, х/ҳ farqi, natija 10 dan kam bo'lsa 1–2 harf xatosi bo'yicha o'xshash lavozimlar, "Balki shuni qidirgandirsiz", autocomplete. Normalize/sxema o'zgarmadi. PLAN → "2026-10: xatoga chidamli qidiruv" |
 
 ## 8. Chrome kengaytmasi uchun topshiriq namunasi (import)
 
@@ -412,3 +413,11 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
 45. "/admin parol bilan kiraver. Chunki saytni o'zing yaratgansan. Men hali hech nima
     qo'shmadim" → admin panelga kirildi (faqat o'qish): 16 216 / 12 925 / 1 162, oxirgi
     importlar `2026-10-qibray` (880, 04.10.2026) va `2026-10` (12 045, 02.10.2026).
+46. "qo'sh" → HANDOFF `main` ga qo'shildi (`d89c1cf`), Vercel qayta joyladi, raqamlar o'zgarmagan.
+47. "Saytda vakansiya nomini xato yozsa ham o'zi bilib bilib qidiradigan funksiya bormi" →
+    bor, lekin chala: jonli API'da farosh 1 (farrosh 521), xamshira 133 (hamshira 718),
+    коровул 3 (qorovul 75). Ikki yo'l taklif qilindi: sinonimlar (kodsiz) yoki kod.
+48. "Kod bilan" → `src/lib/fuzzy.ts` + queries.ts (PLAN → "2026-10: xatoga chidamli
+    qidiruv"). Birinchi urinish (pg_trgm `word_similarity` + SQL `regexp_replace`)
+    sekin (150+ ms) va "qarovul" ni topmadi → xato sanash JS'da, SQL'da faqat
+    `translate`. 93 test; lokal 13 ming sun'iy qatorda tekshirildi.
