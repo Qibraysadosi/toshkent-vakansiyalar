@@ -249,6 +249,19 @@ tugmasi). Yetishmayotgani asosan **manzil**.
   olingan sana yozilsin, har oy yangilansin. Skript uchun API domeni muhit tarmoq
   sozlamalarida ruxsat etilishi kerak.
 
+**Tashqi vakansiya manbalari (hh.uz, OLX) — 2026-10-05 tahlil, qaror yo'q:**
+
+| Manba | Holat | Xulosa |
+| --- | --- | --- |
+| hh.uz (HeadHunter) | 2026-aprel'dan ochiq API'da vakansiya qidiruvi faqat avtorizatsiya bilan; kalit asosan ish beruvchi/rekruting servislariga, moderatsiyadan keyin. Shartlar: ma'lumotni tijoratda ishlatish va uchinchi shaxslarga berish taqiqlangan | Faqat HeadHunter bilan to'g'ridan-to'g'ri shartnoma |
+| OLX.uz | Partner API faqat o'z e'lonini joylash/boshqarish uchun; boshqalarnikini o'qish — parsing (shartlarga zid). E'lonlarda shaxsiy ism/telefon — "Shaxsga doir ma'lumotlar" qonuni 27¹-modda (O'zbekistondagi serverda saqlash; baza AQShda) | Tavsiya etilmaydi |
+| ish.mehnat.uz (Milliy vakansiyalar bazasi, Bandlik vazirligi) | Davlat bazasi; data.egov.uz'da "mavjud vakansiyalar" dataseti bor (tarkibi tekshirilmagan — tarmoq bloklaydi) | Eng to'g'ri yo'l: vazirlikdan API/ruxsat so'rash |
+
+Saytda kerak bo'ladigan o'zgarishlar (manba topilsa): manba belgisi + asl e'longa havola,
+STIR'siz ish beruvchilar (hozir `vacancies.stir` majburiy), kunlik avtomatik yangilash,
+manzil matnidan tuman, rasmiy statistika alohida qolsin. Muqobil: ish beruvchi o'zi
+joylaydigan kabinet (PLAN → Keyinga).
+
 ## 10. Keyingi mumkin bo'lgan ishlar
 
 - Korxona boyitish — 9-bo'limdagi qarorga bog'liq.
@@ -420,4 +433,7 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
 48. "Kod bilan" → `src/lib/fuzzy.ts` + queries.ts (PLAN → "2026-10: xatoga chidamli
     qidiruv"). Birinchi urinish (pg_trgm `word_similarity` + SQL `regexp_replace`)
     sekin (150+ ms) va "qarovul" ni topmadi → xato sanash JS'da, SQL'da faqat
-    `translate`. 93 test; lokal 13 ming sun'iy qatorda tekshirildi.
+    `translate`. 93 test; lokal 13 ming sun'iy qatorda tekshirildi. Production'ga
+    qo'yish uchun "qo'sh" kutilmoqda.
+49. "Bu vakansiyalar bazasiga hh.uz , olx.uz kabilardagi vakansiyalarni ham ulay olamizmi?"
+    → tahlil (9-bo'lim oxiri, "Tashqi vakansiya manbalari"). Faqat tahlil, kod o'zgarmadi.
