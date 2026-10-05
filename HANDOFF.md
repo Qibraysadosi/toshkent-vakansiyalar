@@ -70,8 +70,8 @@ yashirish, sinonimlar, loglar, keshni tozalash), Telegram bot kodi (hali ulanmag
 
 | | |
 | --- | --- |
-| Jonli sayt | https://toshkent-vakansiyalar-steel.vercel.app |
-| Admin | https://toshkent-vakansiyalar-steel.vercel.app/admin — parol Vercel'dagi `ADMIN_PASSWORD` |
+| Jonli sayt | **https://kasbegasi.vercel.app** (2026-10-05 dan asosiy). Eski `toshkent-vakansiyalar-steel.vercel.app` ham ishlaydi (canonical → yangi). Keyin — `kasbegasi.uz` (3-bo'lim, Domen) |
+| Admin | https://kasbegasi.vercel.app/admin — parol Vercel'dagi `ADMIN_PASSWORD` |
 | Kod | GitHub `Qibraysadosi/toshkent-vakansiyalar`, shox `main` |
 | Loyiha papkasi | `portal/` — Next.js 15, React 19, TypeScript, Tailwind 4, `pg`, Supabase Postgres |
 | Ildizdagi `src/`, `server/`, `index.html`, `vite.config.js` | eski **Fintellect** ilovasi — boshqa loyiha, tegilmaydi |
@@ -85,11 +85,12 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 | --- | --- | --- |
 | GitHub | `Qibraysadosi/toshkent-vakansiyalar` — **ochiq (public)**, hamma o'qiy oladi | Claude GitHub App shu hisobda. `main` ga push → avtomatik production deploy (1–2 daqiqa). **Yopiq (private) qilinmasin:** Vercel Hobby yopiq repoda faqat hisob egasining commitlarini joylaydi, Claude commitlari bloklanadi |
 | Hosting | Vercel, hisob **"qibraysadosi's projects"** (Hobby), loyiha `toshkent-vakansiyalar` | Root Directory `portal`, Production Branch `main` |
-| Vercel env | `ADMIN_PASSWORD`, `TG_WEBHOOK_SECRET`, `DATABASE_URL` | Qiymatlar faqat Vercel'da — repoga va bu faylga yozilmaydi |
-| Claude muhiti | **"Claude"** (`env_018bZDRVWrSDeHQGzQR7GUbM`) — sessiyalar shu muhitda. Network access **Custom**: `toshkent-vakansiyalar-steel.vercel.app` + standart paket menejerlari. Environment variables: `PROD_ADMIN_PASSWORD` — production `/admin` paroli | 2026-10-05 da sozlandi va tekshirildi: sessiyadan sayt ochiladi, `/admin` ga kirish ishlaydi. Tahrirlash (Desktop ilova): chap paneldagi repo yonidagi **+** → xabar maydonidagi muhit tanlagichi → **Cloud** → **Claude** ustida ⚙. Yana ikkita **"Default"** muhit bor — ishlatilmaydi (birida xato bilan xuddi shu sozlamalar saqlangan, zarari yo'q). Tarmoq o'zgarishi ~1 daqiqada amalga oshadi; o'zgaruvchilar — sessiya qayta ishga tushganda yoki yangi sessiyada. Parolni chatga yozdirmang |
+| Vercel env | `ADMIN_PASSWORD`, `TG_WEBHOOK_SECRET`, `DATABASE_URL` (sensitive); `NEXT_PUBLIC_SITE_URL` = `https://kasbegasi.vercel.app` (plain, production, id `JIl4bvfz3lZJN73A`) | Maxfiy qiymatlar faqat Vercel'da — repoga va bu faylga yozilmaydi. `NEXT_PUBLIC_SITE_URL` — sitemap, robots, canonical, OG, bot havolalari; o'zgartirilsa — production qayta deploy (build vaqtida o'qiladi). Bo'sh qolsa Vercel eng qisqa custom domenni oladi — DNS ishlamayotgan domen bo'lsa havolalar buziladi |
+| Vercel MCP (Claude) | konnektor **qibraysadosi** hisobida: team `team_cd8jkmTJKzsOSHm0p40XX7gA`, loyiha `prj_u7IanQdim1hdif8qSSXtfQTPg3y7` | Claude o'zi: domen qo'shish, env, deploy (`create_deployment` gitSource main), loglar. Mavjud domenni yo'naltirish (PATCH) uchun vosita yo'q — Vercel UI yoki kod. `web_fetch_vercel_url` — saytni Vercel orqali ochish |
+| Claude muhiti | **"Claude"** (`env_018bZDRVWrSDeHQGzQR7GUbM`) — sessiyalar shu muhitda. Network access: **to'liq ochiq** (2026-10-05). Environment variables: `PROD_ADMIN_PASSWORD` — production `/admin` paroli | 2026-10-05 da sozlandi va tekshirildi: sessiyadan sayt ochiladi, `/admin` ga kirish ishlaydi. Tahrirlash (Desktop ilova): chap paneldagi repo yonidagi **+** → xabar maydonidagi muhit tanlagichi → **Cloud** → **Claude** ustida ⚙. Yana ikkita **"Default"** muhit bor — ishlatilmaydi (birida xato bilan xuddi shu sozlamalar saqlangan, zarari yo'q). Tarmoq o'zgarishi ~1 daqiqada amalga oshadi; o'zgaruvchilar — sessiya qayta ishga tushganda yoki yangi sessiyada. Parolni chatga yozdirmang |
 | Baza | Supabase (East US), **Transaction pooler**, port 6543 | `portal/supabase/schema.sql` qo'llangan. Baza paroli foydalanuvchida |
 | Telegram bot | sozlanmagan | `TG_BOT_TOKEN` yo'q |
-| Domen | yo'q, `*-steel.vercel.app` | |
+| Domen | **`kasbegasi.uz`** — 05.10.2026 da ro'yxatdan o'tgan (OOO Arsenal D), NS `ns1/ns2.vercel-dns.com`, WHOIS holati "Активацияни кутиш" (DNS hali NXDOMAIN). Vercel loyihasiga qo'shilgan, `www` → apex 308 | Routine `trig_01TgaZwXSHCgn5GxidaEZP8p` (shu sessiyaga, har 3 soatda): ishga tushsa `NEXT_PUBLIC_SITE_URL` → `https://kasbegasi.uz`, deploy, hujjatlar, xabar, Routine o'chiriladi; 2026-10-12 gacha. Hisobdagi `uzeida.uz` — boshqa loyiha uchun, tegilmaydi |
 
 **Eskirgan, ishlatilmaydigan narsalar:**
 
@@ -98,10 +99,8 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 - Vercel jamoasi **"jhon's projects"** (`team_kkQB3UmRl9AWHU6iUsvr8LaH`) dagi bo'sh
   `toshkent-vakansiyalar` loyihasi (`prj_jeI1M8T8UohfSrfMVMtFpqAsPqcb`) — qoldiq,
   foydalanuvchi xohlasa o'chiradi.
-- **Diqqat:** claude.ai dagi Vercel konnektori aynan shu "jhon's projects" hisobiga
-  ulangan — Vercel MCP vositalari jonli loyihani **ko'rmaydi** va unda loyiha yarata
-  olmaydi (403). Jonli loyiha bilan ishlash: foydalanuvchi konnektorni qibraysadosi
-  hisobi bilan qayta ulasin yoki Chrome kengaytmasi orqali.
+- Vercel konnektori ilgari shu "jhon's projects" ga ulangan edi; 2026-10-05 da
+  tekshirilganda — qibraysadosi hisobida (3-bo'lim jadvali), jonli loyiha ko'rinadi.
 - `ADMIN_PASSWORD` va `TG_WEBHOOK_SECRET` ni oldingi sessiya yaratgan va chatda
   ko'rsatgan — almashtirish tavsiya qilingan (Vercel → Settings → Environment
   Variables → yangi qiymat → Redeploy). Bot ulashdan oldin webhook secret ham yangilansin.
@@ -152,12 +151,9 @@ saralashda oxirida. Import buni o'zi aniqlaydi (`findHeaderRow`, `REQUIRED_FIELD
 
 ## 6. Bulut sessiyasining cheklovlari
 
-- **Tarmoq siyosati** ("Claude" muhiti, Custom): jonli sayt
-  `toshkent-vakansiyalar-steel.vercel.app` **ochiq** (2026-10-05 dan) — sahifalar va
-  `/api/v1/vacancies` ni `curl` bilan tekshirish mumkin. Hali bloklangan: `.uz` domenlari
-  (gov.uz, stat.uz, soliq.uz, ihamkor.uz …), boshqa `*.vercel.app`, `vercel.com`,
-  `supabase.com`. `WebSearch` ishlaydi, `code.claude.com` hujjatlari ochiladi. Yangi domen
-  kerak bo'lsa — foydalanuvchi o'sha ro'yxatga qo'shadi (3-bo'lim).
+- **Tarmoq** ("Claude" muhiti): 2026-10-05 dan **to'liq ochiq** — jonli sayt, `.uz`
+  saytlar (WHOIS: `cctld.uz/whois/?domain=…&zone=uz`), `dns.google` va boshqalar `curl`
+  bilan ochiladi. Muhit qayta cheklansa — 3-bo'limdagi yo'l bilan domen qo'shiladi.
 - **Production `/admin`** ga `$PROD_ADMIN_PASSWORD` bilan kirish — faqat foydalanuvchi
   aniq so'raganda yoki ruxsat berganda, faqat o'qish uchun. Auto rejimdagi xavfsizlik
   tekshiruvi so'ralmagan urinishni to'xtatadi ("Production Reads"); 2026-10-05 da
@@ -199,19 +195,20 @@ saralashda oxirida. Import buni o'zi aniqlaydi (`findHeaderRow`, `REQUIRED_FIELD
 | 2026-10-04 | README tuzatish (`2653587`); shu HANDOFF, ildiz `CLAUDE.md`, sun'iy seed fayllar, hook xavfsizligi |
 | 2026-10-05 | Yangi sessiya: "Claude" muhitiga jonli sayt domeni (Custom) va `PROD_ADMIN_PASSWORD` qo'shildi; sayt va `/admin` sessiyadan tekshirildi — raqamlar o'zgarmagan |
 | 2026-10-05 | **Xatoga chidamli qidiruv** (`src/lib/fuzzy.ts`): к/қ, х/ҳ farqi, natija 10 dan kam bo'lsa 1–2 harf xatosi bo'yicha o'xshash lavozimlar, "Balki shuni qidirgandirsiz", autocomplete. Normalize/sxema o'zgarmadi. PLAN → "2026-10: xatoga chidamli qidiruv" |
+| 2026-10-05 | Manzil **kasbegasi.vercel.app** (Vercel MCP orqali: domen, `NEXT_PUBLIC_SITE_URL`, production deploy `dpl_D4FEeCZpkEM3uGzyUvwJrtm9rCFp`). `kasbegasi.uz` faollashishini Routine har 3 soatda tekshiradi |
 
 ## 8. Chrome kengaytmasi uchun topshiriq namunasi (import)
 
 Har safar fayl turi va kutilgan raqamlarni moslang. Parolni foydalanuvchiga chatda bering.
 
 ```text
-Goal: import a vacancies Excel file into https://toshkent-vakansiyalar-steel.vercel.app via its admin panel and verify the result. The UI is in Uzbek. Report briefly after each step. Never type passwords and never choose files yourself — ask the user for those.
+Goal: import a vacancies Excel file into https://kasbegasi.vercel.app via its admin panel and verify the result. The UI is in Uzbek. Report briefly after each step. Never type passwords and never choose files yourself — ask the user for those.
 
-1. Open https://toshkent-vakansiyalar-steel.vercel.app/admin. If a password form is shown: click into the password field, STOP and ask the user to type the admin password and press "Kirish". Wait for the admin menu ("Umumiy", "Import", ...).
+1. Open https://kasbegasi.vercel.app/admin. If a password form is shown: click into the password field, STOP and ask the user to type the admin password and press "Kirish". Wait for the admin menu ("Umumiy", "Import", ...).
 2. Click "Import" (/admin/import). Leave the "Batch nomi" field as it is. Click the file input — a native dialog opens: STOP and ask the user to select the Excel file. Wait until the file name is shown.
 3. Click "Oldindan ko'rish" and wait up to 60 seconds. Report: the "Batch:" line, the "Almashtiriladi:" line, "Bazaga yoziladigan vakansiya", "Korxonalar", "O'tkazib yuborilgan", "Tumanlar", and whether a yellow box starting with "Diqqat" is shown. If there is a "Diqqat" box or a red error, report it exactly and STOP without confirming.
 4. Click the button whose label starts with "Tasdiqlash —". Do NOT click "Bekor qilish". Wait up to 60 seconds for the message starting with "Import tugadi" and report it in full.
-5. Open https://toshkent-vakansiyalar-steel.vercel.app/ and report the total job positions counter, the number next to "tuman", and the numbers on the district map.
+5. Open https://kasbegasi.vercel.app/ and report the total job positions counter, the number next to "tuman", and the numbers on the district map.
 
 Rules: do not change any settings on Vercel or in the admin panel; do not hide vacancies; do not touch "Sinonimlar" or "Telegram"; do not open billing. If anything unexpected appears, stop and describe it instead of guessing.
 ```
@@ -267,10 +264,10 @@ joylaydigan kabinet (PLAN → Keyinga).
 - Korxona boyitish — 9-bo'limdagi qarorga bog'liq.
 - **Telegram bot:** @BotFather'dan token → Vercel'da `TG_BOT_TOKEN` → Redeploy → kompyuterda
   `portal/.env.local` ga `TG_BOT_TOKEN`, `TG_WEBHOOK_SECRET` (Vercel'dagi bilan bir xil) va
-  `NEXT_PUBLIC_SITE_URL=https://toshkent-vakansiyalar-steel.vercel.app` yozib
-  `npm run telegram:setup`. Saytdagi bot havolasi uchun `NEXT_PUBLIC_TG_BOT` (bot username).
-- **O'z domeni:** foydalanuvchida webname.uz va Hostinger "Connect domain" sahifalari
-  ochiq turgani ko'ringan — hali muhokama qilinmagan. Vercel → Settings → Domains.
+  `NEXT_PUBLIC_SITE_URL` (Vercel'dagi bilan bir xil — hozir `https://kasbegasi.vercel.app`)
+  yozib `npm run telegram:setup`. Saytdagi bot havolasi uchun `NEXT_PUBLIC_TG_BOT` (bot username).
+- **O'z domeni:** `kasbegasi.uz` faollashishi kutilmoqda (3-bo'lim, Domen). O'tgandan keyin
+  eski manzillarni `kasbegasi.uz` ga yo'naltirish (Vercel → Domains → Edit → Redirect 308).
 - `ADMIN_PASSWORD` ni almashtirish (yangi qiymat ikki joyga: Vercel `ADMIN_PASSWORD` +
   Redeploy, Claude muhitidagi `PROD_ADMIN_PASSWORD`); "jhon's projects" dagi bo'sh Vercel
   loyihasini o'chirish.
@@ -437,3 +434,15 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
     qo'yish uchun "qo'sh" kutilmoqda.
 49. "Bu vakansiyalar bazasiga hh.uz , olx.uz kabilardagi vakansiyalarni ham ulay olamizmi?"
     → tahlil (9-bo'lim oxiri, "Tashqi vakansiya manbalari"). Faqat tahlil, kod o'zgarmadi.
+50. "HH.uz va olx.uz ga xat bilan chiqib ko'rsak nima deysan" → arziydi, lekin umid kam;
+    tartib: vazirlik → hh.uz → OLX. Xat uchun so'raldi: kim nomidan, aloqa, sayt tijoratmi.
+51. "toshkent-vakansiyalar-steel.vercel.app ni kasbegasi.vercel.app qilib o'zgartir" →
+    Chrome kengaytmasi topshirig'i berildi (keyin keraksiz bo'ldi, 52-band).
+52. "Vercel sozlamalaringni shunga o'zgartirish uchun nima qilish kerak" → hech narsa:
+    konnektor allaqachon qibraysadosi hisobida. Topildi: foydalanuvchi `kasbegasi.uz` ni
+    Vercel'ga qo'shgan, lekin DNS NXDOMAIN. Claude o'zi: `kasbegasi.vercel.app` domeni,
+    `NEXT_PUBLIC_SITE_URL`, production deploy — tekshirildi (16 216, sitemap/canonical yangi).
+53. ".uz saytlar ham, boshqalari ham bloklanmagan. To'liq ochildi" → muhit tarmog'i to'liq
+    ochildi; WHOIS: `kasbegasi.uz` — "Активацияни кутиш", NS Vercel, 05.10.2026.
+54. "Domen holatini har 3 soatda tekshir. Agar ishga tushgan bo'lsa saytni kasbegasi.uz ga
+    o'tkaz" → Routine `trig_01TgaZwXSHCgn5GxidaEZP8p` (3-bo'lim, Domen).
