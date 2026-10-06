@@ -90,7 +90,7 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 | Claude muhiti | **"Claude"** (`env_018bZDRVWrSDeHQGzQR7GUbM`) — sessiyalar shu muhitda. Network access: **to'liq ochiq** (2026-10-05). Environment variables: `PROD_ADMIN_PASSWORD` — production `/admin` paroli | 2026-10-05 da sozlandi va tekshirildi: sessiyadan sayt ochiladi, `/admin` ga kirish ishlaydi. Tahrirlash (Desktop ilova): chap paneldagi repo yonidagi **+** → xabar maydonidagi muhit tanlagichi → **Cloud** → **Claude** ustida ⚙. Yana ikkita **"Default"** muhit bor — ishlatilmaydi (birida xato bilan xuddi shu sozlamalar saqlangan, zarari yo'q). Tarmoq o'zgarishi ~1 daqiqada amalga oshadi; o'zgaruvchilar — sessiya qayta ishga tushganda yoki yangi sessiyada. Parolni chatga yozdirmang |
 | Baza | Supabase (East US), **Transaction pooler**, port 6543 | `portal/supabase/schema.sql` qo'llangan. Baza paroli foydalanuvchida |
 | Telegram bot | sozlanmagan | `TG_BOT_TOKEN` yo'q |
-| Domen | **`kasbegasi.uz`** — 05.10.2026 da ro'yxatdan o'tgan (OOO Arsenal D), NS `ns1/ns2.vercel-dns.com`, WHOIS holati "Активацияни кутиш" (DNS hali NXDOMAIN). Vercel loyihasiga qo'shilgan, `www` → apex 308 | Routine `trig_01TgaZwXSHCgn5GxidaEZP8p` (shu sessiyaga, har 3 soatda): ishga tushsa `NEXT_PUBLIC_SITE_URL` → `https://kasbegasi.uz`, deploy, hujjatlar, xabar, Routine o'chiriladi; 2026-10-12 gacha. Hisobdagi `uzeida.uz` — boshqa loyiha uchun, tegilmaydi |
+| Domen | **`kasbegasi.uz`** — 05.10.2026 da ro'yxatdan o'tgan (OOO Arsenal D), NS `ns1/ns2.vercel-dns.com`. 06.10 holati: WHOIS "Актив", .uz delegatsiyasi to'g'ri; Vercel loyihasiga qo'shilgan (`verified`), `www` → apex 308. **Lekin Vercel'da DNS zonasi yaratilmagan** (`list_domains` → `zone: false`), shuning uchun Vercel NS so'rovlarni REFUSED qiladi — Google/Cloudflare SERVFAIL, sayt ochilmaydi. Yechim: `create_or_transfer_domain` `{name: "kasbegasi.uz", method: "add", zone: true}` (Vercel hujjati: Vercel NS ishlatilsa `zone: true`) — foydalanuvchi tasdig'i kutilmoqda. `uzeida.uz` da ham xuddi shunday | Routine `trig_01TgaZwXSHCgn5GxidaEZP8p` (shu sessiyaga, har 3 soatda): ishga tushsa `NEXT_PUBLIC_SITE_URL` → `https://kasbegasi.uz`, deploy, hujjatlar, xabar, Routine o'chiriladi; 2026-10-12 gacha. Hisobdagi `uzeida.uz` — boshqa loyiha uchun, tegilmaydi |
 
 **Eskirgan, ishlatilmaydigan narsalar:**
 
@@ -266,8 +266,9 @@ joylaydigan kabinet (PLAN → Keyinga).
   `portal/.env.local` ga `TG_BOT_TOKEN`, `TG_WEBHOOK_SECRET` (Vercel'dagi bilan bir xil) va
   `NEXT_PUBLIC_SITE_URL` (Vercel'dagi bilan bir xil — hozir `https://kasbegasi.vercel.app`)
   yozib `npm run telegram:setup`. Saytdagi bot havolasi uchun `NEXT_PUBLIC_TG_BOT` (bot username).
-- **O'z domeni:** `kasbegasi.uz` faollashishi kutilmoqda (3-bo'lim, Domen). O'tgandan keyin
-  eski manzillarni `kasbegasi.uz` ga yo'naltirish (Vercel → Domains → Edit → Redirect 308).
+- **O'z domeni:** `kasbegasi.uz` — registrator tomoni tayyor, Vercel'da DNS zonasini yoqish kerak
+  (3-bo'lim, Domen; foydalanuvchi "ha" desa). O'tgandan keyin eski manzillarni `kasbegasi.uz` ga
+  yo'naltirish (Vercel → Domains → Edit → Redirect 308).
 - `ADMIN_PASSWORD` ni almashtirish (yangi qiymat ikki joyga: Vercel `ADMIN_PASSWORD` +
   Redeploy, Claude muhitidagi `PROD_ADMIN_PASSWORD`); "jhon's projects" dagi bo'sh Vercel
   loyihasini o'chirish.
@@ -446,3 +447,10 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
     ochildi; WHOIS: `kasbegasi.uz` — "Активацияни кутиш", NS Vercel, 05.10.2026.
 54. "Domen holatini har 3 soatda tekshir. Agar ishga tushgan bo'lsa saytni kasbegasi.uz ga
     o'tkaz" → Routine `trig_01TgaZwXSHCgn5GxidaEZP8p` (3-bo'lim, Domen).
+
+**2026-10-06**
+
+55. [Routine tekshiruvlari 05.10 18:48 – 06.10 09:48 UTC: o'zgarish yo'q] → "Kasbegasi.uz ni tekshirib
+    ko'r. DNS to'g'ri ulanganmi?" → yo'q, yarim: WHOIS "Актив", NS va .uz delegatsiyasi to'g'ri,
+    loyiha domenlari `verified`; lekin Vercel'da DNS zonasi yo'q (`zone: false`) → Vercel NS REFUSED.
+    Zonani yoqish taklif qilindi, tasdiq kutilmoqda. `uzeida.uz` ga tegilmadi.
