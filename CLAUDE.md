@@ -3,7 +3,7 @@
 Bu repoda ikki loyiha bor:
 
 - **`portal/`** — asosiy ish: **Toshkent vakansiyalar portali** (jonli sayt
-  https://kasbegasi.vercel.app; keyin — kasbegasi.uz). Hamma o'zgarishlar shu yerda.
+  https://kasbegasi.uz; eski kasbegasi.vercel.app ham ishlaydi). Hamma o'zgarishlar shu yerda.
 - Ildizdagi `src/`, `server/`, `index.html`, `vite.config.js`, `package.json` —
   eski **Fintellect** ilovasi. **Tegilmaydi.**
 
