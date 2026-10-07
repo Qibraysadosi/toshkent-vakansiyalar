@@ -268,7 +268,9 @@ joylaydigan kabinet (PLAN → Keyinga).
   `NEXT_PUBLIC_SITE_URL` (Vercel'dagi bilan bir xil — hozir `https://kasbegasi.uz`)
   yozib `npm run telegram:setup`. Saytdagi bot havolasi uchun `NEXT_PUBLIC_TG_BOT` (bot username).
 - **Eski manzillarni yo'naltirish:** `kasbegasi.vercel.app` va `toshkent-vakansiyalar-steel.vercel.app` →
-  `kasbegasi.uz` (Vercel → Domains → Edit → Redirect 308) — foydalanuvchi qarori kutilmoqda.
+  `kasbegasi.uz` (loyiha Settings → Domains → Edit → Redirect 308). 07.10 da foydalanuvchi "o'tkaz" dedi;
+  MCP'da mavjud project domain'ni o'zgartirish vositasi yo'q (`add_project_domain` mavjudga 400) →
+  Chrome kengaytmasi topshirig'i berildi, natija kutilmoqda.
 - `ADMIN_PASSWORD` ni almashtirish (yangi qiymat ikki joyga: Vercel `ADMIN_PASSWORD` +
   Redeploy, Claude muhitidagi `PROD_ADMIN_PASSWORD`); "jhon's projects" dagi bo'sh Vercel
   loyihasini o'chirish.
@@ -462,3 +464,7 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
 57. [Kengaytma hisoboti: domen sahifasi ochilganda zona o'zi faollashdi (hech narsa bosilmagan), Google DNS
     javob beryapti, sayt va SSL ishlaydi] → Claude tekshirdi; `NEXT_PUBLIC_SITE_URL` → `https://kasbegasi.uz`,
     production deploy, tekshiruv, Routine o'chirildi. Eski manzillarni yo'naltirish so'raldi.
+58. "uzeida.uz ni ham shunday qilib ber. Keyin eski manzillarga kirgan odamlarni avtomatik kasbegasi.uz ga
+    o'tkaz" → `uzeida.uz` — `uztira-site` loyihasida (`prj_sDKTLQ0OkuhPXV7fA3LK8ehCz4MW`; `www` → apex 308,
+    `uztira.vercel.app`), zona yo'q, Vercel NS REFUSED; loyihada sayt manzili env'i yo'q (faqat
+    `TELEGRAM_*`). Zona va yo'naltirish uchun bitta Chrome kengaytmasi topshirig'i berildi.
