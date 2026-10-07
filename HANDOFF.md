@@ -70,7 +70,7 @@ yashirish, sinonimlar, loglar, keshni tozalash), Telegram bot kodi (hali ulanmag
 
 | | |
 | --- | --- |
-| Jonli sayt | **https://kasbegasi.uz** (2026-10-07 dan asosiy). `kasbegasi.vercel.app` va eski `toshkent-vakansiyalar-steel.vercel.app` ham ishlaydi (canonical → kasbegasi.uz, yo'naltirish yo'q) |
+| Jonli sayt | **https://kasbegasi.uz** (2026-10-07 dan asosiy). `kasbegasi.vercel.app` va eski `toshkent-vakansiyalar-steel.vercel.app` 07.10 dan 308 bilan `kasbegasi.uz` ga yo'naltiriladi (yo'l va `?q=` saqlanadi) |
 | Admin | https://kasbegasi.uz/admin — parol Vercel'dagi `ADMIN_PASSWORD` |
 | Kod | GitHub `Qibraysadosi/toshkent-vakansiyalar`, shox `main` |
 | Loyiha papkasi | `portal/` — Next.js 15, React 19, TypeScript, Tailwind 4, `pg`, Supabase Postgres |
@@ -90,7 +90,7 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
 | Claude muhiti | **"Claude"** (`env_018bZDRVWrSDeHQGzQR7GUbM`) — sessiyalar shu muhitda. Network access: **to'liq ochiq** (2026-10-05). Environment variables: `PROD_ADMIN_PASSWORD` — production `/admin` paroli | 2026-10-05 da sozlandi va tekshirildi: sessiyadan sayt ochiladi, `/admin` ga kirish ishlaydi. Tahrirlash (Desktop ilova): chap paneldagi repo yonidagi **+** → xabar maydonidagi muhit tanlagichi → **Cloud** → **Claude** ustida ⚙. Yana ikkita **"Default"** muhit bor — ishlatilmaydi (birida xato bilan xuddi shu sozlamalar saqlangan, zarari yo'q). Tarmoq o'zgarishi ~1 daqiqada amalga oshadi; o'zgaruvchilar — sessiya qayta ishga tushganda yoki yangi sessiyada. Parolni chatga yozdirmang |
 | Baza | Supabase (East US), **Transaction pooler**, port 6543 | `portal/supabase/schema.sql` qo'llangan. Baza paroli foydalanuvchida |
 | Telegram bot | sozlanmagan | `TG_BOT_TOKEN` yo'q |
-| Domen | **`kasbegasi.uz`** — ishlaydi, 2026-10-07 dan asosiy manzil. Ro'yxatdan o'tgan 05.10.2026 (OOO Arsenal D), NS `ns1/ns2.vercel-dns.com`, Vercel DNS. `www` → apex 308. Avtomatik yozuvlar (qulflangan): 3 ta CAA, apex va `*` ALIAS. SSL avtomatik (apex sertifikati 05.01.2027 gacha, o'zi yangilanadi). **Tarix:** WHOIS "Актив" bo'lgach ham Vercel'da DNS zonasi yo'q edi (`list_domains` → `zone: false`, Vercel NS REFUSED, Google SERVFAIL). MCP bilan yoqib bo'lmadi: `create_or_transfer_domain` `{method: "add", zone: true}` mavjud domenda no-op, `replace_domain_dns_records` → 401, `PATCH /v3/domains/{domain}` `{op: "update", zone: true}` uchun vosita yo'q. 07.10 da Chrome kengaytmasi dashboard'da domen sahifasini ochganda zona o'zi faollashdi (hech narsa bosilmagan). **Keyingi safar domen ishlamasa — avval dashboard'da domen sahifasini ochib ko'ring.** `uzeida.uz` da ham zona yo'q edi — boshqa loyiha, tegilmaydi | Routine `trig_01TgaZwXSHCgn5GxidaEZP8p` o'tkazishdan keyin o'chirildi. Eski manzillarni `kasbegasi.uz` ga yo'naltirish — foydalanuvchi qarori kutilmoqda (MCP'da project domain PATCH vositasi yo'q — dashboard yoki kod) |
+| Domen | **`kasbegasi.uz`** — ishlaydi, 2026-10-07 dan asosiy manzil. Ro'yxatdan o'tgan 05.10.2026 (OOO Arsenal D), NS `ns1/ns2.vercel-dns.com`, Vercel DNS. `www` → apex 308. Avtomatik yozuvlar (qulflangan): 3 ta CAA, apex va `*` ALIAS. SSL avtomatik (apex sertifikati 05.01.2027 gacha, o'zi yangilanadi). **Tarix:** WHOIS "Актив" bo'lgach ham Vercel'da DNS zonasi yo'q edi (`list_domains` → `zone: false`, Vercel NS REFUSED, Google SERVFAIL). MCP bilan yoqib bo'lmadi: `create_or_transfer_domain` `{method: "add", zone: true}` mavjud domenda no-op, `replace_domain_dns_records` → 401, `PATCH /v3/domains/{domain}` `{op: "update", zone: true}` uchun vosita yo'q. 07.10 da Chrome kengaytmasi dashboard'da domen sahifasini ochganda zona o'zi faollashdi (hech narsa bosilmagan). **Keyingi safar domen ishlamasa — avval dashboard'da domen sahifasini ochib ko'ring** (`uzeida.uz` bilan ham xuddi shunday tasdiqlandi; endi ikkalasida `zone: true`) | Routine `trig_01TgaZwXSHCgn5GxidaEZP8p` o'tkazishdan keyin o'chirildi. Eski manzillar (`kasbegasi.vercel.app`, `toshkent-vakansiyalar-steel.vercel.app`) — loyiha Settings → Domains'da 308 → `kasbegasi.uz` (07.10, kengaytma orqali; MCP'da project domain PATCH vositasi yo'q) |
 
 **Eskirgan, ishlatilmaydigan narsalar:**
 
@@ -105,7 +105,9 @@ Foydalanuvchi qo'llanmasi: `portal/README.md`.
   ko'rsatgan — almashtirish tavsiya qilingan (Vercel → Settings → Environment
   Variables → yangi qiymat → Redeploy). Bot ulashdan oldin webhook secret ham yangilansin.
   2026-10-05 da foydalanuvchi admin parolini yana chatga yozdi — almashtirish yanada zarur.
-- Foydalanuvchining Vercel hisobida boshqa loyiha ham bor (`uztira-site`) — tegilmaydi.
+- Foydalanuvchining Vercel hisobida boshqa loyiha ham bor (`uztira-site`, `prj_sDKTLQ0OkuhPXV7fA3LK8ehCz4MW`,
+  domeni `uzeida.uz`, `www` → apex 308) — tegilmaydi. 07.10 da foydalanuvchi so'rovi bilan faqat `uzeida.uz`
+  DNS zonasi yoqildi (sayt ochiladi, SSL bor); loyiha sozlamalari o'zgarmagan.
 - `toshkent-vakansiyalar.vercel.app` nomi band bo'lgani uchun Vercel `-steel` qo'shgan.
 
 ## 4. Bazadagi ma'lumot (2026-10-04)
@@ -197,6 +199,7 @@ saralashda oxirida. Import buni o'zi aniqlaydi (`findHeaderRow`, `REQUIRED_FIELD
 | 2026-10-05 | **Xatoga chidamli qidiruv** (`src/lib/fuzzy.ts`): к/қ, х/ҳ farqi, natija 10 dan kam bo'lsa 1–2 harf xatosi bo'yicha o'xshash lavozimlar, "Balki shuni qidirgandirsiz", autocomplete. Normalize/sxema o'zgarmadi. PLAN → "2026-10: xatoga chidamli qidiruv" |
 | 2026-10-05 | Manzil **kasbegasi.vercel.app** (Vercel MCP orqali: domen, `NEXT_PUBLIC_SITE_URL`, production deploy `dpl_D4FEeCZpkEM3uGzyUvwJrtm9rCFp`). `kasbegasi.uz` faollashishini Routine har 3 soatda tekshiradi |
 | 2026-10-07 | Asosiy manzil **kasbegasi.uz**: Vercel DNS zonasi faollashdi (dashboard orqali), `NEXT_PUBLIC_SITE_URL` → `https://kasbegasi.uz`, production deploy `dpl_EXpi5AMAcCmX9D7i3f7xknNErb9x` (`main`); Routine o'chirildi |
+| 2026-10-07 | Eski manzillar 308 → `kasbegasi.uz`; `uzeida.uz` (`uztira-site`) DNS zonasi faollashtirildi — ikkalasi Chrome kengaytmasi orqali, Claude tekshirdi |
 
 ## 8. Chrome kengaytmasi uchun topshiriq namunasi (import)
 
@@ -267,10 +270,6 @@ joylaydigan kabinet (PLAN → Keyinga).
   `portal/.env.local` ga `TG_BOT_TOKEN`, `TG_WEBHOOK_SECRET` (Vercel'dagi bilan bir xil) va
   `NEXT_PUBLIC_SITE_URL` (Vercel'dagi bilan bir xil — hozir `https://kasbegasi.uz`)
   yozib `npm run telegram:setup`. Saytdagi bot havolasi uchun `NEXT_PUBLIC_TG_BOT` (bot username).
-- **Eski manzillarni yo'naltirish:** `kasbegasi.vercel.app` va `toshkent-vakansiyalar-steel.vercel.app` →
-  `kasbegasi.uz` (loyiha Settings → Domains → Edit → Redirect 308). 07.10 da foydalanuvchi "o'tkaz" dedi;
-  MCP'da mavjud project domain'ni o'zgartirish vositasi yo'q (`add_project_domain` mavjudga 400) →
-  Chrome kengaytmasi topshirig'i berildi, natija kutilmoqda.
 - `ADMIN_PASSWORD` ni almashtirish (yangi qiymat ikki joyga: Vercel `ADMIN_PASSWORD` +
   Redeploy, Claude muhitidagi `PROD_ADMIN_PASSWORD`); "jhon's projects" dagi bo'sh Vercel
   loyihasini o'chirish.
@@ -468,3 +467,6 @@ qiymatlar yozilmagan. Eski repo/shox nomlari o'sha paytdagi holat (hozirgisi —
     o'tkaz" → `uzeida.uz` — `uztira-site` loyihasida (`prj_sDKTLQ0OkuhPXV7fA3LK8ehCz4MW`; `www` → apex 308,
     `uztira.vercel.app`), zona yo'q, Vercel NS REFUSED; loyihada sayt manzili env'i yo'q (faqat
     `TELEGRAM_*`). Zona va yo'naltirish uchun bitta Chrome kengaytmasi topshirig'i berildi.
+59. [Kengaytma hisoboti: `uzeida.uz` zonasi sahifa ochilganda faollashdi; ikkala eski manzil 308 → kasbegasi.uz;
+    uzeida.uz ochildi, SSL chiqdi] → Claude tekshirdi: `zone: true` ikkalasida, uzeida.uz 200, www → apex,
+    eski manzillar yo'l va so'rov bilan `kasbegasi.uz` ga o'tadi.
